@@ -1,9 +1,14 @@
 'use client';
 import React, { useState } from 'react';
-import { RatingInstruction } from './questions';
 
-export default function AccordionRubric({ instructions }: { instructions: RatingInstruction[] }) {
+type Props = { scaleLabels: Record<string, string> };
+
+export default function AccordionRubric({ scaleLabels }: Props) {
   const [open, setOpen] = useState(false);
+
+  const entries = Object.entries(scaleLabels).sort(
+    ([a], [b]) => Number(a) - Number(b)
+  );
 
   return (
     <div className="mt-2">
@@ -17,9 +22,9 @@ export default function AccordionRubric({ instructions }: { instructions: Rating
 
       {open && (
         <ul className="mt-2 space-y-1 text-sm text-gray-700 list-disc list-inside">
-          {instructions.map((item) => (
-            <li key={item.value}>
-              <strong>{item.value}:</strong> {item.meaning}
+          {entries.map(([val, meaning]) => (
+            <li key={val}>
+              <strong>{val}:</strong> {meaning}
             </li>
           ))}
         </ul>

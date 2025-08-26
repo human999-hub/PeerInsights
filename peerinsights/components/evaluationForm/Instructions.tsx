@@ -36,13 +36,13 @@ get full points otherwise you receive no points. Essentially an all or nothing s
         </li>
       </ul>
 
-      {/* <div className="mt-6">
+      <div className="mt-6">
         <h3 className="text-lg font-semibold text-gray-700 mb-2">Rubric</h3>
         <p className="text-gray-600">
           Each rating question includes a specific rubric to guide your evaluation. 
           Expand the rubric below each question to understand what each score means.
         </p>
-      </div> */}
+      </div>
     </section>
   );
 }
