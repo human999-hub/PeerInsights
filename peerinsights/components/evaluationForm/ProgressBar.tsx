@@ -1,3 +1,4 @@
+// components/evaluationForm/ProgressBar.tsx
 'use client';
 import React from 'react';
 
@@ -14,9 +15,9 @@ export default function ProgressBar({ current, total }: ProgressBarProps) {
         <span>{`Page ${current + 1} of ${total}`}</span>
         <span>{`${percentage}% complete`}</span>
       </div>
-      <div className="w-full bg-gray-200 h-2 rounded-full">
+      <div className="w-full bg-gray-300 h-2 rounded-full">
         <div
-          className="h-full bg-[#861f41] rounded-full transition-all duration-300"
+          className="h-full bg-primary rounded-full transition-all duration-300"
           style={{ width: `${percentage}%` }}
         />
       </div>

@@ -1,3 +1,4 @@
+// components/evaluationForm/AccordionRubric.tsx
 'use client';
 import React, { useState } from 'react';
 
@@ -15,7 +16,7 @@ export default function AccordionRubric({ scaleLabels }: Props) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="text-sm text-[#861f41] hover:underline focus:outline-none"
+        className="text-sm text-primary hover:underline focus:outline-none"
       >
         {open ? 'Hide Rubric' : 'Show Rubric'}
       </button>

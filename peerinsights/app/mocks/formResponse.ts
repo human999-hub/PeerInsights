@@ -1,7 +1,4 @@
-// before:
-// import type { FormLookupResponse } from "@/app/lib/formApi";
-
-// after (and note the path: "@/lib/..." not "@/app/lib/..."):
+// app/mocks/formResponse.ts
 import { FormResponseSchema } from "@/app/lib/zodSchemas";
 import type { FormResponse } from "@/app/lib/zodSchemas";
 

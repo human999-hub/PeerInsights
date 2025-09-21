@@ -1,4 +1,4 @@
-
+// components/evaluationForm/teammates.ts
 export interface Teammate {
   id: string;
   name: string;

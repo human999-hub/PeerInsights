@@ -1,3 +1,4 @@
+// components/evaluationForm/CustomSlider.tsx
 'use client';
 import { Slider } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -16,7 +17,7 @@ const CustomSlider = styled(Slider)({
   },
   '& .MuiSlider-rail': {
     opacity: 0.3,
-    backgroundColor: '#bfbfbf',
+    backgroundColor: '#9c9c9cff',
   },
 });
 

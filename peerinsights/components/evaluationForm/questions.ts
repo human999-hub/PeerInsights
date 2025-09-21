@@ -1,3 +1,4 @@
+// components/evaluationForm/questions.ts
 export interface RatingInstruction {
   value: number;
   meaning: string;

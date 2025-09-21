@@ -26,7 +26,7 @@ const CommentSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  comment_text: { type: String, required: true },
+  comment_text: { type: String },
 });
 
 export default mongoose.models.Comment ||

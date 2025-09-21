@@ -1,3 +1,4 @@
+// peerinsights/app/lib/zodSchemas.ts
 import { z } from "zod";
 
 /** -------- fetch form (POST /api/form) ---------- */
@@ -108,14 +109,15 @@ export const RatingItemSchema = z.object({
 export const CommentItemSchema = z.object({
   to_student_id: z.string(),
   question_id: z.string(),
-  comment_text: z.string().max(5000),
+  comment_text: z.string().max(5000).catch(""),  // keep ""
 });
 
 export const PraiseItemSchema = z.object({
   to_student_id: z.string(),
-  question_id: z.string().optional(),
-  praise_text: z.string().max(1000),
+  question_id: z.string(),                       // REQUIRED
+  praise_text: z.string().max(1000).catch(""),   // keep ""
 });
+
 export const SubmissionPayloadSchema = z.object({
   assignment_id: z.string(),
   team_id: z.string(),
@@ -124,6 +126,7 @@ export const SubmissionPayloadSchema = z.object({
   comments: z.array(CommentItemSchema),
   praises: z.array(PraiseItemSchema),
 });
+
 
 export type SubmissionPayload = z.infer<typeof SubmissionPayloadSchema>;
 

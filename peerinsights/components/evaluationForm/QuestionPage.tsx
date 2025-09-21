@@ -1,35 +1,28 @@
+// components/evaluationForm/QuestionPage.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
-import CustomSlider from "./CustomSlider";
-import ProgressBar from "./ProgressBar";
-import AccordionRubric from "./AccordionRubric";
-import { groupOptions } from "./student";
-
+import React, { useState, useMemo, useEffect } from "react";
 import { useFormMetaQuery, useSubmitEvaluation } from "@/app/lib/queries";
 import {
   FormRequestSchema,
   SubmissionPayloadSchema,
   type Question,
 } from "@/app/lib/zodSchemas";
+import ProgressBar from "./ProgressBar";
+import ScaleQuestion from "./ScaleQuestion";
+import TextQuestion from "./TextQuestion";
+import PraiseQuestion from "./PraiseQuestion";
+import LookupForm from "./LookupForm";
 
 type TM = { user_id: string; first_name: string; last_name: string };
 
-function fullName(m: TM) {
-  return `${m.first_name} ${m.last_name}`;
-}
-function tpl(str: string | undefined, name: string) {
-  return (str ?? "Anything to praise about {{name}}?").replace(/\{\{\s*name\s*\}\}/g, name);
-}
-
 export default function QuestionPage() {
-  const [currentPage, setCurrentPage] = useState(0); // 0 = student info
-  const isFirstPage = currentPage === 0;
+  // steps - 0 is lookup form and > or 1 are questions
+  const [step, setStep] = useState(0);
+  const [started, setStarted] = useState(false);
 
-  // student info (plus email+group to fetch meta)
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
+  // lookup form states
+  const [email, setEmailId] = useState("");
   const [groupId, setGroupId] = useState<number | "">("");
 
   // trigger fetch when email+group are present
@@ -41,19 +34,47 @@ export default function QuestionPage() {
     });
   }, [email, groupId]);
 
-  const { data, isFetching, isError, error } = useFormMetaQuery(request);
+  const { data, isFetching, isError, error, refetch } = useFormMetaQuery(
+    request,
+    started
+  );
+
   const submit = useSubmitEvaluation();
 
   const questions = data?.questions ?? [];
   const teammates = (data?.team.members ?? []) as TM[];
-  const totalPages = 1 + questions.length; // student info + questions
-  const currentQuestion: Question | null =
-    !isFirstPage && questions.length > 0 ? questions[currentPage - 1] : null;
+  const numQuestions = questions.length;
+  const currentUserId = data?.student.user_id;
+  
+// const recipients = teammates.filter(tm => tm.user_id !== currentUserId);
+  // const totalPages = 1 + numQuestions; // 1 = student info
+  // 👉 only go to first question after data loads successfully
+  useEffect(() => {
+    if (started && !isFetching && !isError && numQuestions > 0 && step === 0) {
+      setStep(1);
+    }
+  }, [started, isFetching, isError, numQuestions, step]);
+  // If error, keep/return to lookup step to avoid weird pagination
+  useEffect(() => {
+    if (isError) setStep(0);
+  }, [isError]);
 
-  /** answers (keyed by `${qid}-${uid}`) */
+  const onLookupNext = () => {
+    setStarted(true);
+    setStep(1);
+  };
+
+  const currentQuestion: Question | null =
+    step >= 1 && questions.length > 0 ? questions[step - 1] : null;
+
+  // answers (keyed by `${qid}-${uid}`)
   const [scaleRatings, setScaleRatings] = useState<Record<string, number>>({});
-  const [scaleComments, setScaleComments] = useState<Record<string, string>>({});
-  const [textPerTeammate, setTextPerTeammate] = useState<Record<string, string>>({});
+  const [scaleComments, setScaleComments] = useState<Record<string, string>>(
+    {}
+  );
+  const [textPerTeammate, setTextPerTeammate] = useState<
+    Record<string, string>
+  >({});
   const [praiseTexts, setPraiseTexts] = useState<Record<string, string>>({});
 
   const onScaleChange = (qid: string, uid: string, value: number) =>
@@ -65,258 +86,518 @@ export default function QuestionPage() {
   const onPraiseChange = (qid: string, uid: string, text: string) =>
     setPraiseTexts((p) => ({ ...p, [`${qid}-${uid}`]: text }));
 
-  const handleNext = () => {
-    if (currentPage < totalPages - 1) setCurrentPage((p) => p + 1);
+  const isLastQuestionPage = step === numQuestions && numQuestions > 0;
+
+  const isCurrentScaleQuestionComplete = (): boolean => {
+    if (!currentQuestion || currentQuestion.question_type !== "scale")
+      return true;
+    return teammates.every((tm) =>
+      // scaleRatings.hasOwnProperty(
+      //   `${currentQuestion.question_id}-${tm.user_id}`
+      // )
+
+      Object.prototype.hasOwnProperty.call(
+        scaleRatings,
+        `${currentQuestion.question_id}-${tm.user_id}`
+      )
+    );
   };
-  const handlePrevious = () => {
-    if (currentPage > 0) setCurrentPage((p) => p - 1);
+
+  //accumulators that survive page changes
+  const [ratingsAcc, setRatingsAcc] = useState<
+    { question_id: string; to_student_id: string; rating: number }[]
+  >([]);
+  const [commentsAcc, setCommentsAcc] = useState<
+    { question_id: string; to_student_id: string; comment_text: string }[]
+  >([]);
+  const [praisesAcc, setPraisesAcc] = useState<
+    { question_id: string; to_student_id: string; praise_text: string }[]
+  >([]);
+
+  const clearPageState = () => {
+    setScaleRatings({});
+    setScaleComments({});
+    setTextPerTeammate({});
+    setPraiseTexts({});
   };
 
-  const handleSubmit = async () => {
-    if (!data) return;
 
-    // R A T I N G S
-    const ratings = Object.entries(scaleRatings).map(([k, rating]) => {
-      const [question_id, to_student_id] = k.split("-");
-      return { question_id, to_student_id, rating: Math.round(Number(rating)) };
-    });
-
-    // C O M M E N T S  (both: "explain" text question + optional comments under scale)
-    const comments: { question_id: string; to_student_id: string; comment_text: string }[] = [];
-    for (const [k, text] of Object.entries(textPerTeammate)) {
-      if ((text ?? "").trim()) {
-        const [question_id, to_student_id] = k.split("-");
-        comments.push({ question_id, to_student_id, comment_text: text });
-      }
+  const buildBundlesForCurrentQuestion = () => {
+    if (!currentQuestion) {
+      return {
+        ratings: [] as typeof ratingsAcc,
+        comments: [] as typeof commentsAcc,
+        praises: [] as typeof praisesAcc,
+      };
     }
-    for (const [k, text] of Object.entries(scaleComments)) {
-      if ((text ?? "").trim()) {
-        const [question_id, to_student_id] = k.split("-");
-        comments.push({ question_id, to_student_id, comment_text: text });
-      }
-    }
+    const qid = currentQuestion.question_id;
 
-    // P R A I S E S
-    const praises = Object.entries(praiseTexts)
-      .filter(([, t]) => (t ?? "").trim().length > 0)
-      .map(([k, praise_text]) => {
-        const [question_id, to_student_id] = k.split("-");
-        return { question_id, to_student_id, praise_text };
+    if (currentQuestion.question_type === "scale") {
+      const newRatings: typeof ratingsAcc = [];
+      const newComments: typeof commentsAcc = [];
+      teammates.forEach((tm) => {
+        const key = `${qid}-${tm.user_id}`;
+        if (key in scaleRatings) {
+          newRatings.push({
+            question_id: qid,
+            to_student_id: tm.user_id,
+            rating: Math.round(Number(scaleRatings[key])),
+          });
+        }
+        newComments.push({
+          question_id: qid,
+          to_student_id: tm.user_id,
+          comment_text: scaleComments[key] ?? "",
+        });
       });
+      return {
+        ratings: newRatings,
+        comments: newComments,
+        praises: [] as typeof praisesAcc,
+      };
+    }
+
+    if (currentQuestion.question_type === "text") {
+      const newComments: typeof commentsAcc = [];
+      teammates.forEach((tm) => {
+        const key = `${qid}-${tm.user_id}`;
+        
+          newComments.push({
+            question_id: qid,
+            to_student_id: tm.user_id,
+            comment_text: textPerTeammate[key] ?? "",
+          });
+        
+      });
+      return {
+        ratings: [] as typeof ratingsAcc,
+        comments: newComments,
+        praises: [] as typeof praisesAcc,
+      };
+    }
+
+    if (currentQuestion.question_type === "praise") {
+      const newPraises: typeof praisesAcc = [];
+      const praiseTargets = teammates.filter(
+        (tm) => tm.user_id !== data?.student.user_id
+      );
+
+      praiseTargets.forEach((tm) => {
+        const key = `${qid}-${tm.user_id}`;
+      
+          newPraises.push({
+            question_id: qid,
+            to_student_id: tm.user_id,
+            praise_text: praiseTexts[key] ?? "",
+          });
+        
+      });
+
+      return {
+        ratings: [] as typeof ratingsAcc,
+        comments: [] as typeof commentsAcc,
+        praises: newPraises,
+      };
+    }
+
+    return {
+      ratings: [] as typeof ratingsAcc,
+      comments: [] as typeof commentsAcc,
+      praises: [] as typeof praisesAcc,
+    };
+  };
+
+  const flushCurrentQuestionToAccumulators = () => {
+    if (!currentQuestion) return;
+    const qid = currentQuestion.question_id;
+    const { ratings, comments, praises } = buildBundlesForCurrentQuestion();
+
+    setRatingsAcc((prev) => [
+      ...prev.filter((r) => r.question_id !== qid),
+      ...ratings,
+    ]);
+    setCommentsAcc((prev) => [
+      ...prev.filter((c) => c.question_id !== qid),
+      ...comments,
+    ]);
+    setPraisesAcc((prev) => [
+      ...prev.filter((p) => p.question_id !== qid),
+      ...praises,
+    ]);
+  };
+
+  const handleNext = () => {
+    if (
+      currentQuestion?.question_type === "scale" &&
+      !isCurrentScaleQuestionComplete()
+    ) {
+      alert("Please rate all teammates before proceeding.");
+      return;
+    }
+    queueMicrotask(() => {
+      // ensures latest onChange is applied
+      flushCurrentQuestionToAccumulators();
+      clearPageState();
+      if (step < numQuestions) setStep((s) => s + 1);
+    });
+  };
+
+  const handlePrevious = () => {
+    // Save this page too so you don't lose work when going back
+    flushCurrentQuestionToAccumulators();
+    if (step > 0) setStep((s) => s - 1);
+  };
+
+  // const handleSubmit = async () => {
+  //   if (!data) return;
+
+  //   try {
+  //     if (
+  //       currentQuestion?.question_type === "scale" &&
+  //       !isCurrentScaleQuestionComplete()
+  //     ) {
+  //       alert("Please rate all teammates before submitting.");
+  //       return;
+  //     }
+
+  //     // Ensure the last onChange from any controlled inputs is committed
+  //     await Promise.resolve();
+
+  //     // Merge current page bundles with accumulators (avoid relying on async setState)
+  //     let finalRatings = ratingsAcc;
+  //     let finalComments = commentsAcc;
+  //     let finalPraises = praisesAcc;
+
+  //     if (currentQuestion) {
+  //       const qid = currentQuestion.question_id;
+  //       const { ratings, comments, praises } = buildBundlesForCurrentQuestion();
+
+  //       finalRatings = [
+  //         ...ratingsAcc.filter((r) => r.question_id !== qid),
+  //         ...ratings,
+  //       ];
+  //       finalComments = [
+  //         ...commentsAcc.filter((c) => c.question_id !== qid),
+  //         ...comments,
+  //       ];
+  //       finalPraises = [
+  //         ...praisesAcc.filter((p) => p.question_id !== qid),
+  //         ...praises,
+  //       ];
+  //     }
+
+  //     const payload = {
+  //       assignment_id: data.assignment.assignment_id,
+  //       team_id: data.team.team_id,
+  //       from_student_id: data.student.user_id,
+  //       ratings: finalRatings,
+  //       comments: finalComments,
+  //       praises: finalPraises,
+  //     };
+
+  //     const valid = SubmissionPayloadSchema.parse(payload);
+  //     await submit.mutateAsync(valid);
+  //     alert("Submitted!");
+  //   } catch (e) {
+  //     console.error(e);
+  //     alert((e as Error).message || "Submit failed");
+  //   }
+  // };
+
+  // ---------- Rehydrate page state when switching pages ----------
+
+const handleSubmit = async () => {
+  if (!data) return;
+
+  try {
+    // Flush last onChange from controlled inputs
+    await Promise.resolve();
+
+    // Build quick lookup maps from accumulators
+    const rMap = new Map<string, number>();
+    ratingsAcc.forEach(r => rMap.set(`${r.question_id}-${r.to_student_id}`, r.rating));
+
+    const cMap = new Map<string, string>();
+    commentsAcc.forEach(c => cMap.set(`${c.question_id}-${c.to_student_id}`, c.comment_text));
+
+    const pMap = new Map<string, string>();
+    praisesAcc.forEach(p => pMap.set(`${p.question_id}-${p.to_student_id}`, p.praise_text));
+
+    const allRatings: typeof ratingsAcc = [];
+    const allComments: typeof commentsAcc = [];
+    const allPraises: typeof praisesAcc = [];
+
+    for (const q of questions) {
+      if (q.question_type === "scale") {
+        for (const tm of teammates) {
+          const key = `${q.question_id}-${tm.user_id}`;
+
+          // ratings are required for every teammate on every scale question
+          const rating =
+            (currentQuestion?.question_id === q.question_id ? scaleRatings[key] : undefined) ??
+            rMap.get(key);
+
+          if (rating == null) {
+            alert("Please rate all teammates before submitting.");
+            return;
+          }
+
+          allRatings.push({
+            question_id: q.question_id,
+            to_student_id: tm.user_id,
+            rating: Math.round(Number(rating)),
+          });
+
+          // optional explanation: ALWAYS push, default ""
+          const comment =
+            (currentQuestion?.question_id === q.question_id ? scaleComments[key] : undefined) ??
+            cMap.get(key) ??
+            "";
+          allComments.push({
+            question_id: q.question_id,
+            to_student_id: tm.user_id,
+            comment_text: comment,
+          });
+        }
+      }
+
+      if (q.question_type === "text") {
+        for (const tm of teammates) {
+          const key = `${q.question_id}-${tm.user_id}`;
+          const comment =
+            (currentQuestion?.question_id === q.question_id ? textPerTeammate[key] : undefined) ??
+            cMap.get(key) ??
+            "";
+          allComments.push({
+            question_id: q.question_id,
+            to_student_id: tm.user_id,
+            comment_text: comment,
+          });
+        }
+      }
+
+      if (q.question_type === "praise") {
+        for (const tm of teammates) {
+          if (tm.user_id === data.student.user_id) continue; // exclude self
+          const key = `${q.question_id}-${tm.user_id}`;
+          const praise =
+            (currentQuestion?.question_id === q.question_id ? praiseTexts[key] : undefined) ??
+            pMap.get(key) ??
+            "";
+          allPraises.push({
+            question_id: q.question_id,
+            to_student_id: tm.user_id,
+            praise_text: praise,
+          });
+        }
+      }
+    }
+
+    // (Optional) sanity check — remove after verifying
+    const numScaleOrText = questions.filter(q => q.question_type === "scale" || q.question_type === "text").length;
+    const numPraise = questions.filter(q => q.question_type === "praise").length;
+    const expectedComments = teammates.length * numScaleOrText;
+    const expectedPraises  = (teammates.length - 1) * numPraise;
+    console.log({ finalCommentsLen: allComments.length, finalPraisesLen: allPraises.length, expectedComments, expectedPraises });
 
     const payload = {
       assignment_id: data.assignment.assignment_id,
       team_id: data.team.team_id,
-      from_student_id: data.student.user_id, // ← backend expects this name
-      ratings,
-      comments,
-      praises,
+      from_student_id: data.student.user_id,
+      ratings: allRatings,
+      comments: allComments,
+      praises: allPraises,
     };
 
     const valid = SubmissionPayloadSchema.parse(payload);
     await submit.mutateAsync(valid);
-    // TODO: toast/redirect
-  };
+    alert("Submitted!");
+  } catch (e) {
+    console.error(e);
+    alert((e as Error).message || "Submit failed");
+  }
+};
+
+
+  useEffect(() => {
+    if (!currentQuestion) return;
+
+    // start with a clean slate
+    clearPageState();
+
+    const qid = currentQuestion.question_id;
+
+    if (currentQuestion.question_type === "scale") {
+      const restoredRatings: Record<string, number> = {};
+      ratingsAcc.forEach((r) => {
+        if (r.question_id === qid) {
+          restoredRatings[`${qid}-${r.to_student_id}`] = r.rating;
+        }
+      });
+
+      const restoredScaleComments: Record<string, string> = {};
+      commentsAcc.forEach((c) => {
+        if (c.question_id === qid) {
+          restoredScaleComments[`${qid}-${c.to_student_id}`] = c.comment_text;
+        }
+      });
+
+      setScaleRatings(restoredRatings);
+      setScaleComments(restoredScaleComments);
+    }
+
+    if (currentQuestion.question_type === "text") {
+      const restored: Record<string, string> = {};
+      commentsAcc.forEach((c) => {
+        if (c.question_id === qid) {
+          restored[`${qid}-${c.to_student_id}`] = c.comment_text;
+        }
+      });
+      setTextPerTeammate(restored);
+    }
+
+    if (currentQuestion.question_type === "praise") {
+      const restored: Record<string, string> = {};
+      praisesAcc.forEach((p) => {
+        if (p.question_id === qid) {
+          restored[`${qid}-${p.to_student_id}`] = p.praise_text;
+        }
+      });
+      setPraiseTexts(restored);
+    }
+  }, [currentQuestion, ratingsAcc, commentsAcc, praisesAcc]);
+
+  if (submit.isSuccess && submit.data?.ok) {
+    return (
+      <section className="mb-8 rounded-md border border-green-200 bg-green-50 p-6 shadow-sm">
+        <h2 className="text-xl font-semibold text-green-800">Thank you!</h2>
+        <p className="mt-2 text-black-700">
+          Your evaluation was submitted successfully.
+        </p>
+      </section>
+    );
+  }
+  const haveQuestions = !!data && numQuestions > 0;
+  const lookupErrorMessage =
+    step === 0 && isError ? error?.message ?? "Failed to load form" : "";
 
   return (
-    <section className="px-4 pb-8">
-      <ProgressBar current={currentPage} total={totalPages} />
+    // className="px-4 pb-8"
+    <section className="bg-light-maroon mb-8 p-6 bg-gray-50 border border-gray-200 rounded-md shadow-sm">
+      {/* Progress only when questions exist */}
+      {haveQuestions && step >= 1 && (
+        <ProgressBar current={step - 1} total={numQuestions} />
+      )}
+      {/* Lookup page */}
+      {step === 0 && (
+        <LookupForm
+          email={email}
+          groupId={groupId}
+          setEmail={setEmailId}
+          setGroupId={setGroupId}
+          onNext={() => {
+            if (!started) setStarted(true);
+            else refetch(); // retry if already started
+          }}
+          loading={started && isFetching}
+          errorMessage={lookupErrorMessage} // ⬅️ show server message UNDER the form
+        />
+      )}
 
-      {/* Page 1: Student Info */}
-      {isFirstPage && (
-        <div className="space-y-6 mt-4">
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Student Information</h2>
-
-          <div>
-            <label className="block text-gray-700 mb-1">First Name (as listed on Canvas)</label>
-            <input
-              type="text"
-              className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#861f41]"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-            />
+      {/* Loading */}
+      {/* {started && isFetching && (
+        <p className="mt-6 text-gray-600">Loading form…</p>
+      )} */}
+      {/* Error banner */}
+      {/* {isError && (
+        <div className="mt-6 flex flex-col items-center justify-center">
+          <div role="alert" className="text-red-600">
+            {error?.message ?? "Failed to load form"}
           </div>
-
-          <div>
-            <label className="block text-gray-700 mb-1">Last Name (as listed on Canvas)</label>
-            <input
-              type="text"
-              className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#861f41]"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#861f41]"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="haritha@example.com"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">Used only to look up your evaluation.</p>
-          </div>
-
-          <div>
-            <label className="block text-gray-700 mb-1">What is your group number?</label>
-            <select
-              className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#861f41]"
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : "")}
-            >
-              <option value="">Select Group Number</option>
-              {groupOptions.map((num) => (
-                <option key={num} value={num}>
-                  Group {num}
-                </option>
-              ))}
-            </select>
+          <div className="mt-4">
+            <button className="button-primary" onClick={() => setStep(0)}>
+              Go back
+            </button>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Question pages */}
-      {!isFirstPage && (
+      {haveQuestions && step >= 1 && currentQuestion && (
         <>
-          {!data && (isFetching || request) && (
-            <p className="mt-6 text-gray-600">Loading form…</p>
-          )}
-          {isError && (
-            <p role="alert" className="mt-6 text-red-600">
-              {error?.message ?? "Failed to load form"}
-            </p>
-          )}
-          {data && currentQuestion && (
-            <div className="mt-2">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  {currentQuestion.title}
-                </h2>
-                {currentQuestion.question_type === "scale" &&
-                  currentQuestion.scale_labels && (
-                    <AccordionRubric scaleLabels={currentQuestion.scale_labels} />
-                  )}
-              </div>
+          <div className="mt-6">
+            {currentQuestion.question_type === "scale" && (
+              <ScaleQuestion
+                question={currentQuestion}
+                teammates={teammates}
+                scaleRatings={scaleRatings}
+                scaleComments={scaleComments}
+                onScaleChange={onScaleChange}
+                onScaleComment={onScaleComment}
+                showErrors={!isCurrentScaleQuestionComplete()}
+              />
+            )}
+            {/* {currentQuestion.question_type === "text" && (
+              <TextQuestion
+                question={currentQuestion}
+                teammates={teammates}
+                onTextChange={onTextChange}
+              />
+            )} */}
+            {currentQuestion.question_type === "praise" && (
+              <PraiseQuestion
+                question={currentQuestion}
+                teammates={teammates.filter(
+                  (tm) => tm.user_id !== currentUserId
+                )}
+                onPraiseChange={onPraiseChange}
+              />
+            )}
+          </div>
 
-              {/* SCALE (per teammate) */}
-              {currentQuestion.question_type === "scale" &&
-                teammates.map((tm) => {
-                  const name = fullName(tm);
-                  const key = `${currentQuestion.question_id}-${tm.user_id}`;
-                  return (
-                    <div key={tm.user_id} className="mb-6">
-                      <p className="font-medium text-gray-700 mb-2">{name}</p>
+          {/* Pagination */}
+          <div className="flex justify-between mt-10">
+            <button
+              className="button-primary disabled:opacity-50"
+              onClick={handlePrevious}
+              disabled={step <= 1}
+            >
+              Previous
+            </button>
+            {isLastQuestionPage ? (
+              <button
+                className="button-primary"
+                onClick={handleSubmit}
+                disabled={!data}
+              >
+                Submit
+              </button>
+            ) : (
+              <button
+                className="button-primary"
+                onClick={handleNext}
+                disabled={!data || !currentQuestion}
+              >
+                Next
+              </button>
+            )}
+          </div>
 
-                      <CustomSlider
-                        name={key}
-                        min={currentQuestion.scale_min}
-                        max={currentQuestion.scale_max}
-                        step={1}
-                        defaultValue={currentQuestion.scale_min}
-                        marks
-                        valueLabelDisplay="auto"
-                        onChange={(_, val) =>
-                          onScaleChange(
-                            currentQuestion.question_id,
-                            tm.user_id,
-                            val as number
-                          )
-                        }
-                      />
-                      <div className="flex justify-between text-sm text-gray-500 mt-1 px-1 mb-3">
-                        {Array.from(
-                          { length: currentQuestion.scale_max - currentQuestion.scale_min + 1 },
-                          (_, i) => i + currentQuestion.scale_min
-                        ).map((v) => (
-                          <span key={v}>{v}</span>
-                        ))}
-                      </div>
-
-                      <textarea
-                        placeholder="Optional explanation…"
-                        rows={2}
-                        className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#861f41]"
-                        onChange={(e) =>
-                          onScaleComment(currentQuestion.question_id, tm.user_id, e.target.value)
-                        }
-                      />
-                    </div>
-                  );
-                })}
-
-              {/* TEXT (per teammate) */}
-              {currentQuestion.question_type === "text" &&
-                teammates.map((tm) => {
-                  const key = `${currentQuestion.question_id}-${tm.user_id}`;
-                  return (
-                    <div key={tm.user_id} className="mb-6">
-                      <label className="block text-gray-700 mb-1">{fullName(tm)}</label>
-                      <textarea
-                        placeholder="Explain your ratings / any issues…"
-                        rows={3}
-                        className="w-full border border-gray-300 p-3 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-[#861f41]"
-                        onChange={(e) =>
-                          onTextChange(currentQuestion.question_id, tm.user_id, e.target.value)
-                        }
-                      />
-                    </div>
-                  );
-                })}
-
-              {/* PRAISE (per teammate) */}
-              {currentQuestion.question_type === "praise" &&
-                teammates.map((tm) => {
-                  const name = fullName(tm);
-                  return (
-                    <div key={tm.user_id} className="mb-6">
-                      <label className="block text-gray-700 mb-1">{name}</label>
-                      <input
-                        type="text"
-                        className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-[#861f41]"
-                        placeholder={tpl(currentQuestion.placeholder_template, name)}
-                        onChange={(e) =>
-                          onPraiseChange(currentQuestion.question_id, tm.user_id, e.target.value)
-                        }
-                      />
-                    </div>
-                  );
-                })}
-            </div>
-          )}
+          {/* Page indicator — ONLY when questions exist */}
+          <p className="mt-4 text-center text-sm text-gray-600">
+            Page {step} of {numQuestions} (
+            {Math.round((step / numQuestions) * 100)}%)
+          </p>
         </>
       )}
-
-      {/* Pagination */}
-      <div className="flex justify-between mt-10">
-        {currentPage > 0 ? (
-          <button
-            onClick={handlePrevious}
-            className="px-4 py-2 rounded bg-gray-300 text-gray-700 hover:bg-gray-400"
-          >
-            Previous
-          </button>
-        ) : (
-          <span />
-        )}
-
-        <button
-          onClick={currentPage === totalPages - 1 ? handleSubmit : handleNext}
-          disabled={isFirstPage ? !email || !groupId : !data || submit.isPending}
-          className="px-4 py-2 rounded bg-[#861f41] text-white hover:bg-[#6e1a36] disabled:opacity-60"
-        >
-          {currentPage === totalPages - 1
-            ? submit.isPending ? "Submitting…" : "Submit"
-            : "Next"}
-        </button>
-      </div>
-
-      <p className="text-sm text-center mt-4 text-gray-600">
-        Page {Math.min(currentPage + 1, totalPages)} of {totalPages} (
-        {Math.round((Math.min(currentPage + 1, totalPages) / totalPages) * 100)}%)
-      </p>
+      {/* IMPORTANT: remove the generic error banner here when step === 0.
+          If you want a banner on question pages, you can add:
+      */}
+      {step >= 1 && isError && (
+        <div className="mt-6 text-center text-red-600" role="alert">
+          {error?.message ?? "Failed to load form"}
+        </div>
+      )}
     </section>
   );
 }

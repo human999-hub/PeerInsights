@@ -1,3 +1,4 @@
+// components/evaluationForm/Instructions.tsx
 'use client';
 
 import React from 'react';
@@ -6,11 +7,11 @@ export default function Instructions() {
   return (
     <section
       aria-labelledby="instructions-heading"
-      className="mb-8 p-6 bg-gray-50 border border-gray-200 rounded-md shadow-sm"
+      className="bg-light-maroon mb-8 p-6 bg-gray-50 border border-gray-200 rounded-md shadow-sm"
     >
       <h2
         id="instructions-heading"
-        className="text-sm font-semibold text-[#861f41] mb-4"
+        className="text-md font-semibold text-primary mb-2"
       >
         Evaluation Instructions
       </h2>
@@ -37,8 +38,11 @@ get full points otherwise you receive no points. Essentially an all or nothing s
       </ul>
 
       <div className="mt-6">
-        <h3 className="text-lg font-semibold text-gray-700 mb-2">Rubric</h3>
-        <p className="text-gray-600">
+   <h2
+        id="instructions-heading"
+        className="text-md font-semibold text-primary mb-2"
+      >Rubric</h2>
+        <p className="text-gray-700 text-sm">
           Each rating question includes a specific rubric to guide your evaluation. 
           Expand the rubric below each question to understand what each score means.
         </p>

@@ -21,7 +21,7 @@ const PraiseSchema = new mongoose.Schema({
   },
   // optional tie to a praise question in your survey
   question_id: { type: mongoose.Schema.Types.ObjectId, ref: "Question" },
-  praise_text: { type: String, required: true },
+  praise_text: { type: String},
 });
 
 export default mongoose.models.Praise || mongoose.model("Praise", PraiseSchema);
