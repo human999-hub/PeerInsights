@@ -57,3 +57,38 @@ border: 1px solid rgba(173, 98, 115, 0.3); */
    hover:bg-primary-hover 
    transition;
 }
+/* Softer card surface on pink page bg */
+@utility surface-card {
+  @apply rounded-2xl bg-white/85
+         border border-subtle-maroon/40
+         shadow-[0_8px_30px_rgba(134,31,65,0.08)];
+}
+
+/* Inputs that feel crisp, with brand focus */
+@utility input-field {
+  @apply w-full rounded-xl
+         bg-white/95
+         border border-subtle-maroon/40
+         px-3 py-2
+         placeholder:text-subtle-maroon/70
+         outline-none ring-0
+         focus:border-primary focus:ring-2 focus:ring-primary/25;
+}
+
+/* CSV preview panel (sub-surface) */
+@utility info-panel {
+  @apply rounded-xl bg-white/80
+         border border-subtle-maroon/35 p-4;
+}
+
+/* Small accent chip for group names */
+@utility group-chip {
+  @apply inline-flex items-center rounded-full
+         bg-secondary/30 text-primary
+         px-2 py-0.5 text-xs font-medium;
+}
+
+/* Optional dotted divider */
+@utility dotted-divider {
+  @apply border-t border-dotted border-subtle-maroon/50;
+}

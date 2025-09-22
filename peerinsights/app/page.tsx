@@ -9,6 +9,15 @@ export default function Home() {
           Welcome to PeerInsights
         </h1>
         <p className="text-gray-700 text-lg mb-6">
+          View/Create Classes:
+        </p>
+        <Link
+          href="/classes"
+          className="button-primary"
+        >
+          Classes
+        </Link>
+        <p className="text-gray-700 text-lg mb-6">
           Click below to evaluate your team members:
         </p>
         <Link
