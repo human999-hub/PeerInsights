@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 
 const AssignmentSchema = new mongoose.Schema({
+  // code: { type: String, unique: true, index: true },
   class_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Class",
@@ -17,6 +18,10 @@ const AssignmentSchema = new mongoose.Schema({
   active: { type: String, enum: ["Y", "N"], default: "Y" },
 });
 AssignmentSchema.index({ class_id: 1, start_date: -1 });
+
+// AssignmentSchema.pre("save", async function () {
+//   if (this.isNew && !this.code) this.code = await getNextCode("A");
+// });
 
 export default mongoose.models.Assignment ||
   mongoose.model("Assignment", AssignmentSchema);

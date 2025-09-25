@@ -13,7 +13,7 @@ export default function Home() {
         </p>
         <Link
           href="/classes"
-          className="button-primary"
+          className="button-primary mb-4"
         >
           Classes
         </Link>

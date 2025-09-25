@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 
 const QuestionSchema = new mongoose.Schema({
+   qid: { type: String, unique: true, index: true }, // <— add this
   title: { type: String, required: true },
   category: String,
   description: String,

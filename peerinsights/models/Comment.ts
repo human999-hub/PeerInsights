@@ -1,7 +1,10 @@
 // models/Comment.ts
 import mongoose from "mongoose";
+// import { getNextCode } from "@/lib/codes";
 
 const CommentSchema = new mongoose.Schema({
+  // code: { type: String, unique: true, index: true }, // 👈 NEW
+
   submission_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Submission",
@@ -26,8 +29,14 @@ const CommentSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  // comment_text: { type: String, required: true },
+  //comment_text: { type: String, required: true },
   comment_text: { type: String },
 });
+
+// CommentSchema.pre("save", async function () {
+//   if (this.isNew && !this.code) this.code = await getNextCode("CMT");
+// });
 
 export default mongoose.models.Comment ||
   mongoose.model("Comment", CommentSchema);

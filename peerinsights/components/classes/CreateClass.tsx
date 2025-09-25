@@ -35,6 +35,7 @@ export default function CreateClass() {
     groups: [],
   });
   const [parsing, setParsing] = React.useState(false);
+  const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
   const instructor_email = "instructor@example.com"; // Placeholder email
   const fileRef = React.useRef<HTMLInputElement>(null);
 
@@ -121,7 +122,13 @@ export default function CreateClass() {
       },
     });
   }
-
+ function resetForm() {
+    setCourseName("");
+    setTerm("");
+    setYear("");
+    setCsvSummary({ className: null, groups: [] });
+    if (fileRef.current) fileRef.current.value = "";
+  }
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const payload = {
@@ -132,14 +139,31 @@ export default function CreateClass() {
       class: csvSummary.className, // single class from CSV
       groups: csvSummary.groups, // [{ groupName, members: [...] }]
     };
-    console.log("Submit payload:", payload);
-    alert("Submitted! (See console for payload)");
+    // console.log("Submit payload:", payload);
+    // alert("Submitted! (See console for payload)");
+     console.log("Submit payload:", payload);
+
+    // Show success + clear the form
+    setSuccessMsg("Class submitted successfully.");
+    resetForm();
+
+    // Auto-hide after 3s (optional)
+    window.setTimeout(() => setSuccessMsg(null), 3000);
   }
 
   return (
     <div className="max-w-3xl mx-auto p-6 surface-card">
       <h2 className="text-2xl font-semibold mb-4">Create a New Class</h2>
-
+  {/* Success banner */}
+      {successMsg && (
+        <div
+          className="mb-4 rounded-xl border border-secondary/70 bg-secondary/30 text-primary px-4 py-3"
+          role="status"
+          aria-live="polite"
+        >
+          {successMsg}
+        </div>
+      )}
       {/* ===== Upload CSV ===== */}
       <div className="mb-6">
         <button

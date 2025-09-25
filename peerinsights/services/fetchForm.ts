@@ -102,6 +102,7 @@ export async function fetchForm({
     },
     questions: questions.map((q) => ({
       question_id: String(q._id),
+      qid: q.qid ?? null, // 👈 added (Q1..Q19)
       title: q.title,
       question_type: q.question_type,
       scale_min: q.scale_min,
