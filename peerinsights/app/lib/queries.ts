@@ -3,7 +3,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchFormMeta, submitEvaluation } from "./formApi";
-import { FormRequest, FormResponse, SubmissionPayload, SubmitResponse } from "./zodSchemas";
+import { FormRequest, FormResponse, SubmissionPayload, SubmitResponse, CreateClassRequest, CreateClassResponse } from "./zodSchemas";
+import { createClass } from "./classesApi";
 
 export function useFormMetaQuery(req: FormRequest | null, enabled = true) {
   return useQuery<FormResponse, Error>({
@@ -24,5 +25,11 @@ export function useSubmitEvaluation() {
       // invalidate if your UI shows "submission status"
       qc.invalidateQueries({ queryKey: ["form-meta"] });
     },
+  });
+}
+
+export function useCreateClass() {
+  return useMutation<CreateClassResponse, Error, CreateClassRequest>({
+    mutationFn: (payload) => createClass(payload),
   });
 }

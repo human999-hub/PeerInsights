@@ -136,3 +136,62 @@ export const SubmitResponseSchema = z.object({
 });
 export type SubmitResponse = z.infer<typeof SubmitResponseSchema>;
 
+/** ---------- create class (POST /api/classes) ---------- */
+export const ClassGroupInputSchema = z.object({
+  groupName: z.string().min(1),
+  members: z.array(z.string().min(1)).min(1), // full names as strings
+});
+
+export const CreateClassRequestSchema = z.object({
+  instructor_email: z.string().email(),
+  instructor_first_name: z.string().min(1),
+  instructor_last_name: z.string().min(1),
+  courseName: z.string().min(1),
+  term: z.string().min(1),
+  year: z.coerce.number().int().min(1900),
+  class: z.string().min(1), // section/code from CSV
+  groups: z.array(ClassGroupInputSchema).min(1),
+});
+export type CreateClassRequest = z.infer<typeof CreateClassRequestSchema>;
+
+/** Response mirrors backend sample */
+export const CreatedStudentSchema = z.object({
+  user_id: z.string(),
+  email: z.string().email(),
+  first_name: z.string(),
+  last_name: z.string(),
+  role: z.literal("student"),
+});
+
+export const CreatedTeamSchema = z.object({
+  _id: z.string(),
+  class_id: z.string(),
+  team_number: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  __v: z.number().int(),
+  members: z.array(CreatedStudentSchema).min(1),
+});
+
+export const CreatedInstructorSchema = z.object({
+  _id: z.string(),
+  email: z.string().email(),
+  first_name: z.string(),
+  last_name: z.string(),
+});
+
+export const CreatedClassSchema = z.object({
+  _id: z.string(),
+  name: z.string(),        // e.g., "Spring_2025_Capstone Project"
+  section: z.string(),     // e.g., "CS_XXXX_..."
+  term: z.string(),
+  year: z.number().int(),
+  instructor: CreatedInstructorSchema,
+  teams: z.array(CreatedTeamSchema).min(1),
+});
+
+export const CreateClassResponseSchema = z.object({
+  ok: z.literal(true),
+  class: CreatedClassSchema,
+});
+export type CreateClassResponse = z.infer<typeof CreateClassResponseSchema>;

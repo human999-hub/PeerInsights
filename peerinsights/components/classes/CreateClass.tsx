@@ -3,6 +3,8 @@
 
 import * as React from "react";
 import * as Papa from "papaparse";
+import { useCreateClass } from "@/app/lib/queries";
+import { CreateClassRequest } from "@/app/lib/zodSchemas";
 
 type Row = Record<string, string>;
 
@@ -37,7 +39,12 @@ export default function CreateClass() {
   const [parsing, setParsing] = React.useState(false);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
   const instructor_email = "instructor@example.com"; // Placeholder email
+  const instructor_first_name = "Instructor"; // Placeholder first name
+  const instructor_last_name = "Example"; // Placeholder last name
   const fileRef = React.useRef<HTMLInputElement>(null);
+  // const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const createClassMutation =  useCreateClass();
 
   function onChooseFile() {
     fileRef.current?.click();
@@ -131,31 +138,55 @@ export default function CreateClass() {
   }
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const payload = {
-      instructor_email,
-      courseName,
-      term,
-      year,
+      setErrorMsg(null);
+    setSuccessMsg(null);
+   if (!csvSummary.className || csvSummary.groups.length === 0) {
+      setErrorMsg("Please upload a CSV with a class value and at least one group.");
+      return;
+    }
+    const payload: CreateClassRequest = {
+      instructor_email: instructor_email.trim(),
+      instructor_first_name: instructor_first_name.trim(),
+      instructor_last_name: instructor_last_name.trim(),
+      courseName: courseName.trim(),
+      term: term.trim(),
+      year: Number(year),
       class: csvSummary.className, // single class from CSV
-      groups: csvSummary.groups, // [{ groupName, members: [...] }]
+      groups: csvSummary.groups.map(g => ({groupName: g.groupName, members: g.members})), // [{ groupName, members: [...] }]
     };
-    // console.log("Submit payload:", payload);
-    // alert("Submitted! (See console for payload)");
-     console.log("Submit payload:", payload);
+    // // console.log("Submit payload:", payload);
+    // // alert("Submitted! (See console for payload)");
+    //  console.log("Submit payload:", payload);
 
-    // Show success + clear the form
-    setSuccessMsg("Class submitted successfully.");
-    resetForm();
+    // // Show success + clear the form
+    // setSuccessMsg("Class submitted successfully.");
+    // resetForm();
 
-    // Auto-hide after 3s (optional)
-    window.setTimeout(() => setSuccessMsg(null), 3000);
+    // // Auto-hide after 3s (optional)
+    // window.setTimeout(() => setSuccessMsg(null), 3000);
+    //  try {
+    //   const res = await createClassMutation.mutateAsync(payload);
+    //   setSuccessMsg(`Class created: ${res.class.name} (${res.class.section})`);
+    //   resetForm();
+    //   window.setTimeout(() => setSuccessMsg(null), 4000);
+    // } catch (err: any) {
+    //   setErrorMsg(err?.message || "Failed to create class.");
+    // }
+   createClassMutation
+    .mutateAsync(payload)
+    .then((res) => {
+      setSuccessMsg(`Class created: ${res.class.name} (${res.class.section})`);
+      resetForm();
+      window.setTimeout(() => setSuccessMsg(null), 4000);
+    })
+    .catch((err: any) => setErrorMsg(err?.message || "Failed to create class."));
   }
 
   return (
     <div className="max-w-3xl mx-auto p-6 surface-card">
       <h2 className="text-2xl font-semibold mb-4">Create a New Class</h2>
   {/* Success banner */}
-      {successMsg && (
+      {/* {successMsg && (
         <div
           className="mb-4 rounded-xl border border-secondary/70 bg-secondary/30 text-primary px-4 py-3"
           role="status"
@@ -163,7 +194,10 @@ export default function CreateClass() {
         >
           {successMsg}
         </div>
-      )}
+      )} */}
+        {successMsg && <div className="mb-4 rounded-xl border border-emerald-600/50 bg-emerald-100/60 text-emerald-900 px-4 py-3">{successMsg}</div>}
+      {errorMsg && <div className="mb-4 rounded-xl border border-rose-600/50 bg-rose-100/60 text-rose-900 px-4 py-3">{errorMsg}</div>}
+
       {/* ===== Upload CSV ===== */}
       <div className="mb-6">
         <button
@@ -301,8 +335,8 @@ export default function CreateClass() {
 
         {/* ===== Submit ===== */}
         <div className="pt-4">
-          <button className="button-primary" type="submit">
-            Submit
+          <button className="button-primary" type="submit" disabled={createClassMutation.isPending}>
+            {createClassMutation.isPending ? "Submitting..." : "Submit"}
           </button>
         </div>
       </form>
