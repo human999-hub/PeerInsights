@@ -4,6 +4,7 @@ import {
   CreateClassRequestSchema,
   CreateClassResponse,
   CreateClassResponseSchema,
+  CreatedClassSchema,
 } from "./zodSchemas";
 
 const BASE = "";
@@ -40,4 +41,21 @@ export async function createClass(reqBody: CreateClassRequest): Promise<CreateCl
   if (!res.ok) throw new Error(await readError(res, "Create class failed"));
   const json = await res.json();
   return parseOrThrow(CreateClassResponseSchema, json, "/api/classes");
+}
+const ListClassesResponseSchema = z.object({
+  ok: z.literal(true),
+  classes: z.array(CreatedClassSchema),
+});
+export type ListClassesResponse = z.infer<typeof ListClassesResponseSchema>;
+
+export async function fetchClassesByInstructor(email: string, opts?: { signal?: AbortSignal }) {
+  const res = await fetch(`/api/classes/by-instructor?email=${encodeURIComponent(email)}`, {
+    method: "GET",
+    cache: "no-store",
+    signal: opts?.signal,
+  });
+  if (!res.ok) throw new Error(`Failed to load classes (${res.status})`);
+  const json = await res.json();
+  const parsed = ListClassesResponseSchema.parse(json);
+  return parsed.classes;
 }

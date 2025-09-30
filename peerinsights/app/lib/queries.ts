@@ -4,7 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchFormMeta, submitEvaluation } from "./formApi";
 import { FormRequest, FormResponse, SubmissionPayload, SubmitResponse, CreateClassRequest, CreateClassResponse } from "./zodSchemas";
-import { createClass } from "./classesApi";
+import { createClass, fetchClassesByInstructor } from "./classesApi";
 
 export function useFormMetaQuery(req: FormRequest | null, enabled = true) {
   return useQuery<FormResponse, Error>({
@@ -31,5 +31,16 @@ export function useSubmitEvaluation() {
 export function useCreateClass() {
   return useMutation<CreateClassResponse, Error, CreateClassRequest>({
     mutationFn: (payload) => createClass(payload),
+  });
+}
+
+export function useClassesByInstructor(email: string | null) {
+  return useQuery({
+    queryKey: ["classes-by-instructor", email],
+    enabled: !!email,
+    queryFn: ({ signal }) => {
+      if (!email) throw new Error("Missing instructor email");
+      return fetchClassesByInstructor(email, { signal });
+    },
   });
 }

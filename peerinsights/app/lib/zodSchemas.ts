@@ -162,16 +162,16 @@ export const CreatedStudentSchema = z.object({
   last_name: z.string(),
   role: z.literal("student"),
 });
-
 export const CreatedTeamSchema = z.object({
   _id: z.string(),
   class_id: z.string(),
   team_number: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  __v: z.number().int(),
+  __v: z.number().int().optional(),   // <— make optional
   members: z.array(CreatedStudentSchema).min(1),
 });
+
 
 export const CreatedInstructorSchema = z.object({
   _id: z.string(),
@@ -195,3 +195,7 @@ export const CreateClassResponseSchema = z.object({
   class: CreatedClassSchema,
 });
 export type CreateClassResponse = z.infer<typeof CreateClassResponseSchema>;
+
+export type CreatedStudent = z.infer<typeof CreatedStudentSchema>;
+export type CreatedTeam    = z.infer<typeof CreatedTeamSchema>;
+export type CreatedClass   = z.infer<typeof CreatedClassSchema>;
