@@ -1,4 +1,4 @@
-// app/CreateClass.tsx
+// components/classes/CreateClass.tsx
 "use client";
 
 import * as React from "react";

@@ -1,3 +1,4 @@
+// peerinsights/app/lib/classesApi.ts
 import { ZodType, z } from "zod";
 import {
   CreateClassRequest,
@@ -5,6 +6,11 @@ import {
   CreateClassResponse,
   CreateClassResponseSchema,
   CreatedClassSchema,
+  UpdateTeamsRequest,
+  UpdateTeamsRequestSchema,
+  UpdateTeamsResponse,
+  UpdateTeamsResponseSchema,
+  GetClassResponseSchema,
 } from "./zodSchemas";
 
 const BASE = "";
@@ -58,4 +64,33 @@ export async function fetchClassesByInstructor(email: string, opts?: { signal?: 
   const json = await res.json();
   const parsed = ListClassesResponseSchema.parse(json);
   return parsed.classes;
+}
+
+export async function fetchClassDetails(
+  instructorEmail: string,
+  section: string,
+  opts?: { signal?: AbortSignal }
+) {
+  const url = `/api/class-details?instructor_email=${encodeURIComponent(
+    instructorEmail
+  )}&section=${encodeURIComponent(section)}`;
+
+  const res = await fetch(url, { method: "GET", cache: "no-store", signal: opts?.signal });
+  if (!res.ok) throw new Error(`Failed to load class (${res.status})`);
+  const json = await res.json();
+  const parsed = GetClassResponseSchema.parse(json);
+  return parsed.class; // ← matches CreatedClassSchema
+}
+
+export async function updateClassTeams(reqBody: UpdateTeamsRequest): Promise<UpdateTeamsResponse> {
+  const body = UpdateTeamsRequestSchema.parse(reqBody);
+  const res = await fetch(`${BASE}/api/classes/update-teams`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Update teams failed"));
+  const json = await res.json();
+  return parseOrThrow(UpdateTeamsResponseSchema, json, "/api/classes/update-teams");
 }

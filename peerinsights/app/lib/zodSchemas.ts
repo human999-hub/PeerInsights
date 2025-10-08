@@ -80,25 +80,6 @@ export type FormResponse = z.infer<typeof FormResponseSchema>;
 export type Question = z.infer<typeof QuestionSchema>;
 export type TeamMember = z.infer<typeof TeamMemberSchema>;
 
-/** -------- submit form (POST /api/submit) ---------- */
-/* Client state → payload (one answer per teammate x per question) */
-// const ScaleAnswerSchema = z.object({
-//   question_id: z.string(),
-//   teammate_user_id: z.string(),
-//   value: z.number().int(),
-// });
-
-// const TextAnswerSchema = z.object({
-//   question_id: z.string(),
-//   teammate_user_id: z.string().optional(), // general text may be per-teammate or overall
-//   text: z.string().max(5000).optional().default(""),
-// });
-
-// const PraiseAnswerSchema = z.object({
-//   question_id: z.string(),
-//   teammate_user_id: z.string(),
-//   text: z.string().max(1000).optional().default(""),
-// });
 
 export const RatingItemSchema = z.object({
   to_student_id: z.string(),
@@ -199,3 +180,30 @@ export type CreateClassResponse = z.infer<typeof CreateClassResponseSchema>;
 export type CreatedStudent = z.infer<typeof CreatedStudentSchema>;
 export type CreatedTeam    = z.infer<typeof CreatedTeamSchema>;
 export type CreatedClass   = z.infer<typeof CreatedClassSchema>;
+
+// ==== UPDATE TEAMS (POST /api/classes/update-teams) ====
+export const UpdateTeamsRequestSchema = z.object({
+  instructor_email: z.string().email(),
+  instructor_first_name: z.string().min(1),
+  instructor_last_name: z.string().min(1),
+  courseName: z.string().min(1),
+  term: z.string().min(1),
+  year: z.coerce.number().int().min(1900),
+  class: z.string().min(1), // section/code, e.g. "CS_XXXX_345678909876543"
+  groups: z.array(ClassGroupInputSchema).min(1),
+});
+export type UpdateTeamsRequest = z.infer<typeof UpdateTeamsRequestSchema>;
+
+export const UpdateTeamsResponseSchema = z.object({
+  ok: z.literal(true),
+  message: z.string(),
+  class: CreatedClassSchema,
+});
+export type UpdateTeamsResponse = z.infer<typeof UpdateTeamsResponseSchema>;
+
+// (Optional) single-class fetch shape
+export const GetClassResponseSchema = z.object({
+  ok: z.literal(true),
+  class: CreatedClassSchema,
+});
+export type GetClassResponse = z.infer<typeof GetClassResponseSchema>;

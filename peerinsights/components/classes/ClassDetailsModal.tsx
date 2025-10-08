@@ -1,3 +1,4 @@
+// components/classes/ClassDetailsModal.tsx
 "use client";
 import React from "react";
 import Link from "next/link";
@@ -27,9 +28,17 @@ export default function ClassDetailsModal({
             Go to Assignments
           </Link>
           <div className="flex items-center gap-3">
-            <Link href={`/classes/${cls._id}/edit`} className="button-primary">
-              Edit Class
+            <Link
+              href={`/classes/${
+                cls._id
+              }/edit?instructor_email=${encodeURIComponent(
+                cls.instructor.email
+              )}&section=${encodeURIComponent(cls.section)}`}
+              className="button-primary"
+            >
+              Edit Groups (CSV)
             </Link>
+
             <button onClick={onClose} className="button-ghost">
               Close
             </button>

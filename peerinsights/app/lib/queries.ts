@@ -3,8 +3,17 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchFormMeta, submitEvaluation } from "./formApi";
-import { FormRequest, FormResponse, SubmissionPayload, SubmitResponse, CreateClassRequest, CreateClassResponse } from "./zodSchemas";
-import { createClass, fetchClassesByInstructor } from "./classesApi";
+import {
+  FormRequest,
+  FormResponse,
+  SubmissionPayload,
+  SubmitResponse,
+  CreateClassRequest,
+  CreateClassResponse,
+  UpdateTeamsRequest,
+  UpdateTeamsResponse,
+} from "./zodSchemas";
+import { createClass, fetchClassesByInstructor, fetchClassDetails, updateClassTeams } from "./classesApi";
 
 export function useFormMetaQuery(req: FormRequest | null, enabled = true) {
   return useQuery<FormResponse, Error>({
@@ -42,5 +51,22 @@ export function useClassesByInstructor(email: string | null) {
       if (!email) throw new Error("Missing instructor email");
       return fetchClassesByInstructor(email, { signal });
     },
+  });
+}
+
+export function useClassDetails(instructorEmail: string | null, section: string | null) {
+  return useQuery({
+    queryKey: ["class-details", instructorEmail, section],
+    enabled: !!instructorEmail && !!section,
+    queryFn: ({ signal }) => {
+      if (!instructorEmail || !section) throw new Error("Missing params");
+      return fetchClassDetails(instructorEmail, section, { signal });
+    },
+  });
+}
+
+export function useUpdateTeams() {
+  return useMutation<UpdateTeamsResponse, Error, UpdateTeamsRequest>({
+    mutationFn: (payload) => updateClassTeams(payload),
   });
 }

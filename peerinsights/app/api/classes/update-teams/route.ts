@@ -1,4 +1,4 @@
-// app/api/classes/route.ts
+// app/api/classes/update-teams/route.ts
 // import { NextResponse } from "next/server";
 // import { connectDB } from "@/lib/mongodb";
 // import Class from "@/models/Class";
@@ -19,10 +19,10 @@
 //       term,
 //       year,
 //       class: section,
-//       groups = [], // expect teams here
+//       groups = [],
 //     } = body;
 
-//     // 1. Ensure Instructor
+//     // 1️⃣ Ensure instructor exists
 //     let instructor = await User.findOne({ email: instructor_email });
 //     if (!instructor) {
 //       instructor = await User.create({
@@ -33,25 +33,33 @@
 //       });
 //     }
 
-//     // 2. Create/Find Class
+//     // 2️⃣ Find existing class
 //     const className = `${term}_${year}_${courseName}`;
-//     let klass = await Class.findOne({ name: className, section });
-//     if (!klass) {
-//       klass = await Class.create({
-//         name: className,
-//         section,
-//         term,
-//         year,
-//         instructor_id: instructor._id,
-//       });
+//     const klass = await Class.findOne({ name: className, section });
+//     if (!klass) throw new Error("Class not found. Please create it first.");
+
+//     // 3️⃣ Load existing teams for this class
+//     const existingTeams = await Team.find({ class_id: klass._id });
+//     const existingTeamNames = existingTeams.map((t) => t.team_number);
+
+//     // 4️⃣ Handle removals (teams omitted in payload)
+//     const incomingGroupNames = groups.map((g) => g.groupName);
+//     const teamsToRemove = existingTeams.filter(
+//       (t) => !incomingGroupNames.includes(t.team_number)
+//     );
+//     for (const team of teamsToRemove) {
+//       await TeamMember.deleteMany({ team_id: team._id });
+//       await Team.deleteOne({ _id: team._id });
 //     }
 
-//     // 3. Create/Find Teams and Members
+//     // 5️⃣ Add or update teams
 //     for (const group of groups) {
 //       let team = await Team.findOne({
 //         class_id: klass._id,
 //         team_number: group.groupName,
 //       });
+
+//       // Create team if not exist
 //       if (!team) {
 //         team = await Team.create({
 //           class_id: klass._id,
@@ -59,41 +67,52 @@
 //         });
 //       }
 
-//       // Ensure members
-//       for (const memberName of group.members) {
-//         // Split into first and last names (naive split)
-//         const [first_name, ...lastParts] = memberName.split(" ");
-//         const last_name = lastParts.join(" ") || "";
+//       // Handle team members
+//       const existingMembers = await TeamMember.find({ team_id: team._id });
+//       const existingMemberIds = new Set(
+//         existingMembers.map((tm) => String(tm.student_id))
+//       );
 
-//         let student = await User.findOne({
-//           email: memberName.toLowerCase().replace(/\s+/g, "") + "@example.com",
-//         });
+//       // Build a new set from payload
+//       const newMemberIds: string[] = [];
+
+//       for (const memberName of group.members) {
+//         const [first_name, ...rest] = memberName.split(" ");
+//         const last_name = rest.join(" ") || "";
+//         const email =
+//           memberName.toLowerCase().replace(/\s+/g, "") + "@example.com";
+
+//         let student = await User.findOne({ email });
 //         if (!student) {
 //           student = await User.create({
-//             email:
-//               memberName.toLowerCase().replace(/\s+/g, "") + "@example.com",
+//             email,
 //             first_name,
 //             last_name,
 //             role: "student",
 //           });
 //         }
+//         newMemberIds.push(String(student._id));
 
-//         const exists = await TeamMember.findOne({
-//           team_id: team._id,
-//           student_id: student._id,
-//         });
-//         if (!exists) {
+//         // Add missing member
+//         if (!existingMemberIds.has(String(student._id))) {
 //           await TeamMember.create({
 //             team_id: team._id,
 //             student_id: student._id,
 //           });
 //         }
 //       }
+
+//       // Remove members who are no longer in the group
+//       for (const member of existingMembers) {
+//         if (!newMemberIds.includes(String(member.student_id))) {
+//           await TeamMember.deleteOne({ _id: member._id });
+//         }
+//       }
 //     }
 
-//     // 4. Fetch Teams + Members for response
-//     const teams = await Team.find({ class_id: klass._id }).lean();
-//     for (const team of teams) {
+//     // 6️⃣ Return full updated data
+//     const updatedTeams = await Team.find({ class_id: klass._id }).lean();
+//     for (const team of updatedTeams) {
 //       const members = await TeamMember.find({ team_id: team._id })
 //         .populate("student_id")
 //         .lean();
@@ -107,9 +126,9 @@
 //       }));
 //     }
 
-//     // 5. Return full payload
 //     return NextResponse.json({
 //       ok: true,
+//       message: "Teams successfully updated",
 //       class: {
 //         _id: klass._id,
 //         name: klass.name,
@@ -122,7 +141,7 @@
 //           first_name: instructor.first_name,
 //           last_name: instructor.last_name,
 //         },
-//         teams,
+//         teams: updatedTeams,
 //       },
 //     });
 //   } catch (e: any) {
@@ -164,20 +183,25 @@ export async function POST(req: Request) {
       });
     }
 
-    // 2️⃣ Create/find class
+    // 2️⃣ Find class
     const className = `${term}_${year}_${courseName}`;
-    let klass = await Class.findOne({ name: className, section });
-    if (!klass) {
-      klass = await Class.create({
-        name: className,
-        section,
-        term,
-        year,
-        instructor_id: instructor._id,
-      });
+    const klass = await Class.findOne({ name: className, section });
+    if (!klass) throw new Error("Class not found. Please create it first.");
+
+    // 3️⃣ Get existing teams
+    const existingTeams = await Team.find({ class_id: klass._id });
+    const incomingGroupNames = groups.map((g) => g.groupName);
+
+    // 4️⃣ Remove missing teams
+    const teamsToRemove = existingTeams.filter(
+      (t) => !incomingGroupNames.includes(t.team_number)
+    );
+    for (const team of teamsToRemove) {
+      await TeamMember.deleteMany({ team_id: team._id });
+      await Team.deleteOne({ _id: team._id });
     }
 
-    // 3️⃣ Create teams and members
+    // 5️⃣ Add / update teams
     for (const group of groups) {
       let team = await Team.findOne({
         class_id: klass._id,
@@ -188,6 +212,12 @@ export async function POST(req: Request) {
           class_id: klass._id,
           team_number: group.groupName,
         });
+
+      const existingMembers = await TeamMember.find({ team_id: team._id });
+      const existingMemberIds = new Set(
+        existingMembers.map((tm) => String(tm.student_id))
+      );
+      const newMemberIds: string[] = [];
 
       for (const memberName of group.members) {
         const [first_name, ...rest] = memberName.split(" ");
@@ -204,22 +234,38 @@ export async function POST(req: Request) {
             role: "student",
           });
         }
+        newMemberIds.push(String(student._id));
 
-        const exists = await TeamMember.findOne({
-          team_id: team._id,
-          student_id: student._id,
-        });
-        if (!exists)
+        if (!existingMemberIds.has(String(student._id))) {
           await TeamMember.create({
             team_id: team._id,
             student_id: student._id,
           });
+        }
+      }
+
+      // remove those not in payload
+      for (const member of existingMembers) {
+        if (!newMemberIds.includes(String(member.student_id))) {
+          await TeamMember.deleteOne({ _id: member._id });
+        }
       }
     }
 
-    // 4️⃣ Build return payload
-    const teams = await Team.find({ class_id: klass._id }).lean();
-    for (const team of teams) {
+    // 6️⃣ Clean orphaned users (students not in any TeamMember)
+    const allStudentIds = (await User.find({ role: "student" })).map((u) =>
+      String(u._id)
+    );
+    const activeIds = (await TeamMember.find({})).map((tm) =>
+      String(tm.student_id)
+    );
+    const orphanIds = allStudentIds.filter((id) => !activeIds.includes(id));
+    if (orphanIds.length > 0)
+      await User.deleteMany({ _id: { $in: orphanIds } });
+
+    // 7️⃣ Response
+    const updatedTeams = await Team.find({ class_id: klass._id }).lean();
+    for (const team of updatedTeams) {
       const members = await TeamMember.find({ team_id: team._id })
         .populate("student_id")
         .lean();
@@ -234,6 +280,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
+      message: "Teams successfully updated.",
       class: {
         _id: klass._id,
         name: klass.name,
@@ -246,7 +293,7 @@ export async function POST(req: Request) {
           first_name: instructor.first_name,
           last_name: instructor.last_name,
         },
-        teams,
+        teams: updatedTeams,
       },
     });
   } catch (e: any) {
