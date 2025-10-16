@@ -207,3 +207,48 @@ export const GetClassResponseSchema = z.object({
   class: CreatedClassSchema,
 });
 export type GetClassResponse = z.infer<typeof GetClassResponseSchema>;
+
+// ---- Assignments (Create + List) ----
+
+// Raw shape as your API returns it
+const AssignmentServerItemSchema = z.object({
+  _id: z.string(),
+  title: z.string(),
+  start_date: z.string().datetime().or(z.string().min(10)),
+  due_date: z.string().datetime().or(z.string().min(10)),
+});
+
+
+
+export const CreateAssignmentRequestSchema = z.object({
+  instructor_email: z.string().email(),
+  section: z.string().min(1),
+  assignment_name: z.string().min(1),
+  assignment_start_date: z.string().date().or(z.string().min(10)), // allow plain YYYY-MM-DD
+  assignment_end_date: z.string().date().or(z.string().min(10)),
+});
+export type CreateAssignmentRequest = z.infer<typeof CreateAssignmentRequestSchema>;
+
+// Client-normalized shape your UI can use
+export const AssignmentItemSchema = AssignmentServerItemSchema.transform(a => ({
+  _id: a._id,
+  name: a.title,
+  start_date: a.start_date,
+  end_date: a.due_date,
+}));
+export type AssignmentItem = z.infer<typeof AssignmentItemSchema>;
+
+// Create response (normalize inside)
+export const CreateAssignmentResponseSchema = z.object({
+  ok: z.literal(true),
+  assignment: AssignmentItemSchema, // normalized
+  message: z.string().optional(),
+});
+export type CreateAssignmentResponse = z.infer<typeof CreateAssignmentResponseSchema>;
+
+// List response (normalized)
+export const ListAssignmentsResponseSchema = z.object({
+  ok: z.literal(true),
+  assignments: z.array(AssignmentItemSchema),
+});
+export type ListAssignmentsResponse = z.infer<typeof ListAssignmentsResponseSchema>;
