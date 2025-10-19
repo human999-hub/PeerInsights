@@ -528,6 +528,7 @@ const handleSubmit = async () => {
           <div className="mt-6">
             {currentQuestion.question_type === "scale" && (
               <ScaleQuestion
+              currentUserId={currentUserId ?? ''}
                 question={currentQuestion}
                 teammates={teammates}
                 scaleRatings={scaleRatings}

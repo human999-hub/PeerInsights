@@ -7,6 +7,7 @@ import { FormHelperText } from "@mui/material";
 
 type TM = { user_id: string; first_name: string; last_name: string };
 type Props = {
+  currentUserId: string;
   question: Question;
   teammates: TM[];
   scaleRatings: Record<string, number>;
@@ -21,6 +22,7 @@ function fullName(m: TM) {
 }
 
 export default function ScaleQuestion({
+  currentUserId,
   question,
   teammates,
   scaleRatings,
@@ -46,7 +48,9 @@ export default function ScaleQuestion({
         const key = `${question.question_id}-${tm.user_id}`;
         return (
           <div key={tm.user_id} className="mb-6">
-            <p className="font-medium text-gray-700 mb-2">{name}</p>
+            <p className="font-medium text-gray-700 mb-2">
+              {name} {currentUserId === tm.user_id ? "(self)" : ""}
+            </p>
             {showErrors && !(key in scaleRatings) && (
               <FormHelperText style={{ color: "red" }}>
                 Rating field is required
