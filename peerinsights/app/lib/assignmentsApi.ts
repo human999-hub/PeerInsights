@@ -7,6 +7,10 @@ import {
   CreateAssignmentResponseSchema,
   ListAssignmentsResponse,
   ListAssignmentsResponseSchema,
+  UpdateAssignmentRequest,
+  UpdateAssignmentResponse,
+  UpdateAssignmentRequestSchema,
+  UpdateAssignmentResponseSchema,
 } from "./zodSchemas";
 
 const BASE = "";
@@ -27,7 +31,7 @@ async function readError(res: Response, fallback: string) {
     return `${fallback} (${res.status}): ${text}`;
   }
 }
-
+// Create Assignment
 export async function createAssignment(
   body: CreateAssignmentRequest
 ): Promise<CreateAssignmentResponse> {
@@ -43,7 +47,7 @@ export async function createAssignment(
   return parseOrThrow(CreateAssignmentResponseSchema, json, "/api/assignments/create");
 }
 
-// (Optional, for later)
+// List Assignments by Class
 export async function fetchAssignmentsByClass(
   instructorEmail: string,
   section: string,
@@ -57,4 +61,20 @@ export async function fetchAssignmentsByClass(
   const json = await res.json();
   const parsed = ListAssignmentsResponseSchema.parse(json);
   return parsed.assignments;
+}
+
+// UPDATE (edit)
+export async function updateAssignment(
+  body: UpdateAssignmentRequest
+): Promise<UpdateAssignmentResponse> {
+  const payload = UpdateAssignmentRequestSchema.parse(body);
+  const res = await fetch(`${BASE}/api/assignments/edit`, {
+    method: "POST", // use POST if that’s how your route is defined
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Update assignment failed"));
+  const json = await res.json();
+  return parseOrThrow(UpdateAssignmentResponseSchema, json, "/api/assignments/edit");
 }

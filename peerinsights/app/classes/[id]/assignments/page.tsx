@@ -5,9 +5,9 @@ import * as React from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
   useClassDetails,
-  //   useAssignments,
+  useAssignments,
   useCreateAssignment,
-  //   useUpdateAssignment,
+  useUpdateAssignment,
 } from "@/app/lib/queries";
 
 // ---------- types ----------
@@ -46,16 +46,16 @@ export default function AssignmentsPage() {
   } = useClassDetails(instructorEmail, section);
 
   // fetch assignments
-  //   const {
-  //     data: assignments,
-  //     isLoading: aLoading,
-  //     isError: aError,
-  //     error: aErr,
-  //     refetch: refetchAssignments,
-  //   } = useAssignments(instructorEmail, section);
+  const {
+    data: assignments,
+    isLoading: aLoading,
+    isError: aError,
+    error: aErr,
+    refetch: refetchAssignments,
+  } = useAssignments(instructorEmail, section);
 
   const createAssignment = useCreateAssignment();
-  //   const updateAssignment = useUpdateAssignment();
+  const updateAssignment = useUpdateAssignment();
 
   // UI state
   const [showCreate, setShowCreate] = React.useState(false);
@@ -68,12 +68,12 @@ export default function AssignmentsPage() {
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   // Inline edit state per row
-  //   const [editingId, setEditingId] = React.useState<string | null>(null);
-  //   const [editForm, setEditForm] = React.useState({
-  //     name: "",
-  //     start: "",
-  //     end: "",
-  //   });
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editForm, setEditForm] = React.useState({
+    name: "",
+    start: "",
+    end: "",
+  });
 
   // ---------- handlers ----------
   function openCreate() {
@@ -112,7 +112,7 @@ export default function AssignmentsPage() {
     try {
       await createAssignment.mutateAsync({
         instructor_email: instructorEmail,
-        section,
+        section: section!,
         assignment_name: createForm.name.trim(),
         assignment_start_date: createForm.start,
         assignment_end_date: createForm.end,
@@ -120,60 +120,63 @@ export default function AssignmentsPage() {
       setCreateMsg("Assignment created successfully");
       setCreateForm({ name: "", start: "", end: "" });
       setShowCreate(false);
+      await refetchAssignments();
       // show for 3 seconds, then refresh
-      setTimeout(() => {
-        setCreateMsg(null);
-        router.refresh();
-      }, 3000);
-      //   await refetchAssignments();
+      setTimeout(() => setCreateMsg(null), 3000);
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to create assignment");
+      // Auto-hide error after 5s (optional)
+      setTimeout(() => setErrorMsg(null), 5000);
     }
   }
 
-  //   function startEdit(a: Assignment) {
-  //     setEditingId(a._id);
-  //     setEditForm({ name: a.name, start: iso(a.start_date), end: iso(a.end_date) });
-  //     setErrorMsg(null);
-  //   }
+  function startEdit(a: Assignment) {
+    setEditingId(a._id);
+    setEditForm({
+      name: a.name,
+      start: iso(a.start_date),
+      end: iso(a.end_date),
+    });
+    setErrorMsg(null);
+  }
 
-  //   function cancelEdit() {
-  //     setEditingId(null);
-  //     setEditForm({ name: "", start: "", end: "" });
-  //   }
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm({ name: "", start: "", end: "" });
+  }
 
-  //   async function saveEdit(a: Assignment) {
-  //     if (!instructorEmail || !section) return;
+  async function saveEdit(a: Assignment) {
+    if (!instructorEmail || !section) return;
 
-  //     const required = [] as string[];
-  //     if (!editForm.name.trim()) required.push("Assignment name");
-  //     if (!editForm.start) required.push("Start date");
-  //     if (!editForm.end) required.push("End date");
-  //     if (required.length) {
-  //       setErrorMsg(`Please fill: ${required.join(", ")}.`);
-  //       return;
-  //     }
-  //     const dErr = validateDates(editForm.start, editForm.end);
-  //     if (dErr) {
-  //       setErrorMsg(dErr);
-  //       return;
-  //     }
+    const required = [] as string[];
+    if (!editForm.name.trim()) required.push("Assignment name");
+    if (!editForm.start) required.push("Start date");
+    if (!editForm.end) required.push("End date");
+    if (required.length) {
+      setErrorMsg(`Please fill: ${required.join(", ")}.`);
+      return;
+    }
+    const dErr = validateDates(editForm.start, editForm.end);
+    if (dErr) {
+      setErrorMsg(dErr);
+      return;
+    }
 
-  //     try {
-  //       await updateAssignment.mutateAsync({
-  //         instructor_email: instructorEmail,
-  //         section,
-  //         assignment_id: a._id,
-  //         assignment_name: editForm.name.trim(),
-  //         assignment_start_date: editForm.start,
-  //         assignment_end_date: editForm.end,
-  //       });
-  //       setEditingId(null);
-  //       await refetchAssignments();
-  //     } catch (e: any) {
-  //       setErrorMsg(e?.message || "Failed to update assignment");
-  //     }
-  //   }
+    try {
+      await updateAssignment.mutateAsync({
+        instructor_email: instructorEmail,
+        section,
+        assignment_id: a._id,
+        assignment_name: editForm.name.trim(),
+        assignment_start_date: editForm.start,
+        assignment_end_date: editForm.end,
+      });
+      setEditingId(null);
+      await refetchAssignments();
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Failed to update assignment");
+    }
+  }
 
   // ---------- UI ----------
   if (!instructorEmail || !section) {
@@ -208,16 +211,24 @@ export default function AssignmentsPage() {
   return (
     <main className="max-w-4xl mx-auto p-6 surface-card rounded-2xl">
       <header className="mb-5">
-        <h1 className="text-2xl font-semibold mb-6 text-primary text-center">Assignments</h1>
+        <h1 className="text-2xl font-semibold mb-6 text-primary text-center">
+          Assignments
+        </h1>
         <p className="text-sm text-black/70 mt-1 text-center">
           {cls.name} • {cls.term} {cls.year} •{" "}
           <span className="font-mono">{cls.section}</span>
         </p>
       </header>
-
+      {/* Global alerts */}
       {createMsg && (
         <div className="mb-4 rounded-xl border border-emerald-600/50 bg-emerald-100/60 text-emerald-900 px-4 py-3">
           {createMsg}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="mb-4 rounded-xl border border-rose-600/50 bg-rose-100/60 text-rose-900 px-4 py-3">
+          {errorMsg}
         </div>
       )}
 
@@ -242,12 +253,11 @@ export default function AssignmentsPage() {
                 Assignment name<span className="text-rose-700"> *</span>
               </label>
               <input
-                             className="input-field"
+                className="input-field"
                 value={createForm.name}
                 onChange={(e) =>
                   setCreateForm((f) => ({ ...f, name: e.target.value }))
                 }
-                
                 placeholder="e.g., Milestone 1"
               />
             </div>
@@ -257,7 +267,7 @@ export default function AssignmentsPage() {
               </label>
               <input
                 type="date"
-                              className="input-field"
+                className="input-field"
                 value={createForm.start}
                 onChange={(e) =>
                   setCreateForm((f) => ({ ...f, start: e.target.value }))
@@ -270,7 +280,7 @@ export default function AssignmentsPage() {
               </label>
               <input
                 type="date"
-                             className="input-field"
+                className="input-field"
                 value={createForm.end}
                 onChange={(e) =>
                   setCreateForm((f) => ({ ...f, end: e.target.value }))
@@ -294,29 +304,20 @@ export default function AssignmentsPage() {
               Cancel
             </button>
           </div>
-
-          {createMsg && (
-            <div className="mt-3 rounded-xl border border-emerald-600/50 bg-emerald-100/60 text-emerald-900 px-4 py-3">
-              {createMsg}
-            </div>
-          )}
         </section>
       )}
 
-      {/* Global alerts */}
-      {errorMsg && (
-        <div className="mb-4 rounded-xl border border-rose-600/50 bg-rose-100/60 text-rose-900 px-4 py-3">
-          {errorMsg}
-        </div>
-      )}
-
       {/* Assignment list */}
-      {/* <section>
-        <h2 className="text-lg font-semibold mb-2">Assignments for this class</h2>
+      <section>
+        <h2 className="text-lg font-semibold mb-2">
+          Assignments for this class
+        </h2>
         {aLoading ? (
           <div className="text-sm text-black/60">Loading assignments…</div>
         ) : aError ? (
-          <div className="text-rose-700">Error loading assignments: {String(aErr)}</div>
+          <div className="text-rose-700">
+            Error loading assignments: {String(aErr)}
+          </div>
         ) : !assignments || assignments.length === 0 ? (
           <div className="text-sm text-black/60">— no assignments yet —</div>
         ) : (
@@ -336,9 +337,11 @@ export default function AssignmentsPage() {
                     <td className="py-2 pr-3 align-top">
                       {editingId === a._id ? (
                         <input
-                          className="input w-full"
+                          className="input-field w-full"
                           value={editForm.name}
-                          onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, name: e.target.value }))
+                          }
                         />
                       ) : (
                         <span className="font-medium">{a.name}</span>
@@ -348,9 +351,14 @@ export default function AssignmentsPage() {
                       {editingId === a._id ? (
                         <input
                           type="date"
-                          className="input"
+                          className="input-field"
                           value={editForm.start}
-                          onChange={(e) => setEditForm((f) => ({ ...f, start: e.target.value }))}
+                          onChange={(e) =>
+                            setEditForm((f) => ({
+                              ...f,
+                              start: e.target.value,
+                            }))
+                          }
                         />
                       ) : (
                         iso(a.start_date)
@@ -360,9 +368,11 @@ export default function AssignmentsPage() {
                       {editingId === a._id ? (
                         <input
                           type="date"
-                          className="input"
+                          className="input-field"
                           value={editForm.end}
-                          onChange={(e) => setEditForm((f) => ({ ...f, end: e.target.value }))}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, end: e.target.value }))
+                          }
                         />
                       ) : (
                         iso(a.end_date)
@@ -376,16 +386,22 @@ export default function AssignmentsPage() {
                             onClick={() => saveEdit(a)}
                             disabled={updateAssignment.isPending}
                           >
-                            {updateAssignment.isPending ? "Updating…" : "Update"}
+                            {updateAssignment.isPending
+                              ? "Updating…"
+                              : "Update"}
                           </button>
-                          <button className="button-ghost" onClick={cancelEdit}>Cancel</button>
+                          <button className="button-ghost" onClick={cancelEdit}>
+                            Cancel
+                          </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
-                          <button className="button-ghost" onClick={() => startEdit(a)}>
+                          <button
+                            className="button-ghost"
+                            onClick={() => startEdit(a)}
+                          >
                             Edit
                           </button>
-                          
                         </div>
                       )}
                     </td>
@@ -395,7 +411,7 @@ export default function AssignmentsPage() {
             </table>
           </div>
         )}
-      </section> */}
+      </section>
 
       {/* Footer actions */}
       <div className="flex items-center gap-3 mt-6">

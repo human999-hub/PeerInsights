@@ -14,11 +14,14 @@ import {
   UpdateTeamsResponse,
   CreateAssignmentRequest,
   CreateAssignmentResponse,
+  UpdateAssignmentRequest,
+  UpdateAssignmentResponse,
 } from "./zodSchemas";
 import { createClass, fetchClassesByInstructor, fetchClassDetails, updateClassTeams } from "./classesApi";
 import {
   createAssignment,
   fetchAssignmentsByClass,
+  updateAssignment,
 } from "./assignmentsApi";
 
 // GET /api/form
@@ -85,14 +88,13 @@ export function useUpdateTeams() {
   });
 }
 
-// Assignments
+// ---------- Assignments ----------
 export function useCreateAssignment() {
   return useMutation<CreateAssignmentResponse, Error, CreateAssignmentRequest>({
     mutationFn: (payload) => createAssignment(payload),
   });
 }
 
-// (Optional for later list page)
 export function useAssignments(instructorEmail: string | null, section: string | null) {
   return useQuery({
     queryKey: ["assignments-by-class", instructorEmail, section],
@@ -101,5 +103,11 @@ export function useAssignments(instructorEmail: string | null, section: string |
       if (!instructorEmail || !section) throw new Error("Missing params");
       return fetchAssignmentsByClass(instructorEmail, section, { signal });
     },
+  });
+}
+
+export function useUpdateAssignment() {
+  return useMutation<UpdateAssignmentResponse, Error, UpdateAssignmentRequest>({
+    mutationFn: (payload) => updateAssignment(payload),
   });
 }

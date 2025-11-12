@@ -1,6 +1,6 @@
 // peerinsights/app/lib/zodSchemas.ts
 import { z } from "zod";
-
+// Evaluation Form Schemas
 /** -------- fetch form (POST /api/form) ---------- */
 export const FormRequestSchema = z.object({
   student_email: z.string().email(),
@@ -117,6 +117,7 @@ export const SubmitResponseSchema = z.object({
 });
 export type SubmitResponse = z.infer<typeof SubmitResponseSchema>;
 
+// ---- Classes (Create, Update Teams, Fetch) ----
 /** ---------- create class (POST /api/classes) ---------- */
 export const ClassGroupInputSchema = z.object({
   groupName: z.string().min(1),
@@ -208,37 +209,71 @@ export const GetClassResponseSchema = z.object({
 });
 export type GetClassResponse = z.infer<typeof GetClassResponseSchema>;
 
-// ---- Assignments (Create + List) ----
+// ---- Assignments (Create + List + Update) ----
 
-// Raw shape as your API returns it
-const AssignmentServerItemSchema = z.object({
-  _id: z.string(),
-  title: z.string(),
-  start_date: z.string().datetime().or(z.string().min(10)),
-  due_date: z.string().datetime().or(z.string().min(10)),
+const Ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
+
+// Accept both wire formats and coerce types
+const AssignmentServerFlexibleSchema = z.object({
+  // id variants
+  _id: z.union([z.string(), z.number()]).optional(),
+  assignment_id: z.union([z.string(), z.number()]).optional(),
+
+  // name/title variants
+  title: z.string().optional(),
+  name: z.string().optional(),
+  assignment_name: z.string().optional(),
+
+  // start date variants (string | Date)
+  start_date: z.union([z.string(), z.date()]).optional(),
+  startDate: z.union([z.string(), z.date()]).optional(),
+
+  // end/due date variants (string | Date)
+  due_date: z.union([z.string(), z.date()]).optional(),
+  end_date: z.union([z.string(), z.date()]).optional(),
+  dueDate: z.union([z.string(), z.date()]).optional(),
+  endDate: z.union([z.string(), z.date()]).optional(),
 });
 
+// to YYYY-MM-DD
+function toYMD(v: unknown): string {
+  if (!v) return "";
+  const d = v instanceof Date ? v : new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+  return d.toISOString().slice(0, 10);
+}
 
+// Client-normalized object used across the app
+export const AssignmentItemSchema = AssignmentServerFlexibleSchema.transform((a) => {
+  const id = a._id ?? a.assignment_id;                    // _id OR assignment_id
+  const name = a.title ?? a.name ?? a.assignment_name;    // title/name/assignment_name
+  const start = a.start_date ?? a.startDate;              // start_date/startDate
+  const end = a.due_date ?? a.end_date ?? a.dueDate ?? a.endDate; // due/end variants
+  return {
+    _id: String(id ?? ""),
+    name: String(name ?? ""),
+    start_date: toYMD(start),
+    end_date: toYMD(end),
+  };
+}).superRefine((v, ctx) => {
+  if (!v._id) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing _id" });
+  if (!v.name) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing name/title" });
+  if (!v.start_date) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing start_date" });
+  if (!v.end_date) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing end_date" });
+});
 
+export type AssignmentItem = z.infer<typeof AssignmentItemSchema>;
+
+// ----- Create -----
 export const CreateAssignmentRequestSchema = z.object({
   instructor_email: z.string().email(),
   section: z.string().min(1),
   assignment_name: z.string().min(1),
-  assignment_start_date: z.string().date().or(z.string().min(10)), // allow plain YYYY-MM-DD
-  assignment_end_date: z.string().date().or(z.string().min(10)),
+  assignment_start_date: Ymd,
+  assignment_end_date: Ymd,
 });
 export type CreateAssignmentRequest = z.infer<typeof CreateAssignmentRequestSchema>;
 
-// Client-normalized shape your UI can use
-export const AssignmentItemSchema = AssignmentServerItemSchema.transform(a => ({
-  _id: a._id,
-  name: a.title,
-  start_date: a.start_date,
-  end_date: a.due_date,
-}));
-export type AssignmentItem = z.infer<typeof AssignmentItemSchema>;
-
-// Create response (normalize inside)
 export const CreateAssignmentResponseSchema = z.object({
   ok: z.literal(true),
   assignment: AssignmentItemSchema, // normalized
@@ -246,9 +281,27 @@ export const CreateAssignmentResponseSchema = z.object({
 });
 export type CreateAssignmentResponse = z.infer<typeof CreateAssignmentResponseSchema>;
 
-// List response (normalized)
+// ----- List -----
 export const ListAssignmentsResponseSchema = z.object({
   ok: z.literal(true),
   assignments: z.array(AssignmentItemSchema),
 });
 export type ListAssignmentsResponse = z.infer<typeof ListAssignmentsResponseSchema>;
+
+// ----- Update -----
+export const UpdateAssignmentRequestSchema = z.object({
+  instructor_email: z.string().email(),
+  section: z.string().min(1),
+  assignment_id: z.string().min(1),
+  assignment_name: z.string().min(1),
+  assignment_start_date: Ymd,
+  assignment_end_date: Ymd,
+});
+export type UpdateAssignmentRequest = z.infer<typeof UpdateAssignmentRequestSchema>;
+
+export const UpdateAssignmentResponseSchema = z.object({
+  ok: z.literal(true),
+  assignment: AssignmentItemSchema,
+  message: z.string().optional(),
+});
+export type UpdateAssignmentResponse = z.infer<typeof UpdateAssignmentResponseSchema>;
