@@ -382,7 +382,7 @@ export default function AssignmentsPage() {
                       {editingId === a._id ? (
                         <div className="flex gap-2">
                           <button
-                            className="button-primary"
+                            className="button-primary cursor-pointer"
                             onClick={() => saveEdit(a)}
                             disabled={updateAssignment.isPending}
                           >
@@ -390,14 +390,14 @@ export default function AssignmentsPage() {
                               ? "Updating…"
                               : "Update"}
                           </button>
-                          <button className="button-ghost" onClick={cancelEdit}>
+                          <button className="button-secondary" onClick={cancelEdit}>
                             Cancel
                           </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
                           <button
-                            className="button-ghost"
+                            className="button underline hover:no-underline cursor-pointer p-0"
                             onClick={() => startEdit(a)}
                           >
                             Edit
@@ -415,7 +415,7 @@ export default function AssignmentsPage() {
 
       {/* Footer actions */}
       <div className="flex items-center gap-3 mt-6">
-        <button className="button-ghost" onClick={() => router.back()}>
+        <button className="button-secondary" onClick={() => router.back()}>
           Back
         </button>
       </div>
