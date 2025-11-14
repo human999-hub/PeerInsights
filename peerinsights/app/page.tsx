@@ -1,6 +1,32 @@
+"use client";
 import Link from 'next/link';
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { isLoggedIn } from "./lib/authClient";
+import Spinner from '@/components/Spinner';
 export default function Home() {
+   const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const authenticated = isLoggedIn();
+
+    if (!authenticated) {
+      router.replace("/login");
+    } else {
+      setCheckingAuth(false);
+    }
+  }, [router]);
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
   return (
     // bg-gray-50
     <main className="min-h-screen flex flex-col justify-center items-center px-6 py-10 font-figtree">

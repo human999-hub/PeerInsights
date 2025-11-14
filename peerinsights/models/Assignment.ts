@@ -1,6 +1,5 @@
 // models/Assignment.ts
 import mongoose from "mongoose";
-
 const AssignmentSchema = new mongoose.Schema({
   // code: { type: String, unique: true, index: true },
   class_id: {

@@ -3,29 +3,66 @@
 import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Eye, EyeClosed, EyeOff, EyeOffIcon } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { useRegisterUser } from "../lib/queries";
+import { useRouter } from "next/navigation";
+import AuthGraphic from "@/components/AuthGraphic";
 
-type Role = "professor" | "teaching assistant" | "grader";
+type Role = "instructor" | "ta"; // ✅ backend values only
 
 export default function RegisterPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [role, setRole] = useState<Role>("professor");
+  const [role, setRole] = useState<Role>("instructor");
   const [emailLocal, setEmailLocal] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
   const email = `${emailLocal}@vt.edu`;
+
+  const router = useRouter();
+  const {
+    mutate: register,
+    isPending,
+    error: mutationError,
+  } = useRegisterUser();
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    // TODO: call your register API
-    // payload example:
-    // { firstName, lastName, role, email, password }
-    console.log({ firstName, lastName, role, email, password });
+    setFormError(null);
+
+    if (!emailLocal.trim()) {
+      setFormError("Please enter your VT PID.");
+      return;
+    }
+
+    register(
+      {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        password,
+        role, // "instructor" | "ta"
+      },
+      {
+        onSuccess: () => {
+          // You could also auto-login here, but simplest is redirect to login
+          router.push("/login");
+        },
+        onError: (err) => {
+          setFormError(err.message || "Registration failed");
+        },
+      }
+    );
   };
 
+  const displayError = formError || mutationError?.message;
+
   return (
-    <div className="min-h-dvh bg-light-maroon/30 flex items-center justify-center p-6">
+    <div className="min-h-dvh bg-light-maroon/30 flex gap-5 items-center justify-center p-6">
+      {/* <h1 className="text-3xl font-bold text-primary">PeerInsights</h1> */}
+      <AuthGraphic />
       <motion.main
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -70,7 +107,6 @@ export default function RegisterPage() {
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 className="input-field"
-                 style={{ backgroundColor: '#fff' }}
                 placeholder="Last"
               />
             </div>
@@ -85,9 +121,8 @@ export default function RegisterPage() {
                 onChange={(e) => setRole(e.target.value as Role)}
                 className="input-field"
               >
-                <option value="professor">Professor</option>
-                <option value="teaching assistant">Teaching Assistant</option>
-                <option value="grader">Grader</option>
+                <option value="instructor">Instructor</option>
+                <option value="ta">Teaching Assistant</option>
               </select>
             </div>
 
@@ -123,24 +158,36 @@ export default function RegisterPage() {
                 className="input-field pr-10"
                 placeholder="••••••••"
               />
-            {password ?  <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-4 top-12 transform -translate-y-1/2 text-subtle-maroon hover:text-primary transition"
-              >
-                {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-              </button> : <div></div>}
+              {password ? (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-4 top-12 transform -translate-y-1/2 text-subtle-maroon hover:text-primary transition"
+                >
+                  {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              ) : (
+                <div />
+              )}
             </div>
+
+            {/* Error */}
+            {displayError && (
+              <p className="md:col-span-2 text-sm text-red-600 mt-1">
+                {displayError}
+              </p>
+            )}
 
             {/* Submit */}
             <div className="md:col-span-2 mt-2">
               <motion.button
                 whileTap={{ scale: 0.98 }}
-                whileHover={{ y: -1 }}
-                className="button-primary w-full"
+                whileHover={!isPending ? { y: -1 } : {}}
+                className="button-primary w-full disabled:opacity-60"
                 type="submit"
+                disabled={isPending}
               >
-                Create account
+                {isPending ? "Creating account..." : "Create account"}
               </motion.button>
             </div>
           </form>
@@ -155,16 +202,6 @@ export default function RegisterPage() {
             </Link>
           </div>
         </div>
-
-        {/* Decorative glow */}
-        {/* <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.15 }}
-          className="mt-4 text-center text-xs text-subtle-maroon"
-        >
-          By creating an account, you agree to our terms and policies.
-        </motion.div> */}
       </motion.main>
     </div>
   );

@@ -1,4 +1,3 @@
-// peerinsights/app/api/assignments/edit/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Class from "@/models/Class";
@@ -35,7 +34,7 @@ export async function POST(req: Request) {
     // 2️⃣ Find instructor
     const instructor = await User.findOne({
       email: instructor_email,
-      role: "instructor",
+      role: { $in: ["instructor", "ta"] }, // CHANGED FOR TA
     });
     if (!instructor)
       return NextResponse.json(

@@ -305,3 +305,55 @@ export const UpdateAssignmentResponseSchema = z.object({
   message: z.string().optional(),
 });
 export type UpdateAssignmentResponse = z.infer<typeof UpdateAssignmentResponseSchema>;
+
+// ========= AUTH (register / login) =========
+
+export const RoleSchema = z.enum(["student", "instructor", "ta"]);
+
+export const AuthUserSchema = z.object({
+  _id: z.string(),
+  email: z.string().email(),
+  first_name: z.string(),
+  last_name: z.string(),
+  role: RoleSchema,
+});
+
+export type AuthUser = z.infer<typeof AuthUserSchema>;
+
+// ---- Register (POST /api/auth/register) ----
+// backend only allows instructor / ta here
+export const RegisterRequestSchema = z.object({
+  first_name: z.string().min(1),
+  last_name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(8),
+  role: z.enum(["instructor", "ta"]),
+});
+
+export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
+
+export const RegisterResponseSchema = z.object({
+  ok: z.literal(true),
+  message: z.string(),
+  user: AuthUserSchema, // role will be "instructor" | "ta"
+});
+
+export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
+
+// ---- Login (POST /api/auth/login) ----
+
+export const LoginRequestSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  role: RoleSchema, // "student" | "instructor" | "ta"
+});
+
+export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+
+export const LoginResponseSchema = z.object({
+  ok: z.literal(true),
+  token: z.string(),
+  user: AuthUserSchema,
+});
+
+export type LoginResponse = z.infer<typeof LoginResponseSchema>;

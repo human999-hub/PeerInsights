@@ -1,8 +1,10 @@
 // models/Question.ts
 import mongoose from "mongoose";
+// import { getNextCode } from "@/lib/codes";
 
 const QuestionSchema = new mongoose.Schema({
-   qid: { type: String, unique: true, index: true }, // <— add this
+  qid: { type: String, unique: true, index: true }, // <— add this
+
   title: { type: String, required: true },
   category: String,
   description: String,

@@ -16,6 +16,10 @@ import {
   CreateAssignmentResponse,
   UpdateAssignmentRequest,
   UpdateAssignmentResponse,
+  RegisterRequest,
+  RegisterResponse,
+  LoginRequest,
+  LoginResponse,
 } from "./zodSchemas";
 import { createClass, fetchClassesByInstructor, fetchClassDetails, updateClassTeams } from "./classesApi";
 import {
@@ -23,6 +27,7 @@ import {
   fetchAssignmentsByClass,
   updateAssignment,
 } from "./assignmentsApi";
+import { registerUser, loginUser } from "./authApi";
 
 // GET /api/form
 export function useFormMetaQuery(req: FormRequest | null, enabled = true) {
@@ -109,5 +114,21 @@ export function useAssignments(instructorEmail: string | null, section: string |
 export function useUpdateAssignment() {
   return useMutation<UpdateAssignmentResponse, Error, UpdateAssignmentRequest>({
     mutationFn: (payload) => updateAssignment(payload),
+  });
+}
+
+// ---------- Auth ----------
+
+// Register instructor / TA
+export function useRegisterUser() {
+  return useMutation<RegisterResponse, Error, RegisterRequest>({
+    mutationFn: (payload) => registerUser(payload),
+  });
+}
+
+// Login (student / instructor / TA)
+export function useLoginUser() {
+  return useMutation<LoginResponse, Error, LoginRequest>({
+    mutationFn: (payload) => loginUser(payload),
   });
 }

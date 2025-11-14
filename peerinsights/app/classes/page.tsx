@@ -3,11 +3,34 @@
 import ClassesList from "@/components/classes/ClassesList";
 import CreateClass from "@/components/classes/CreateClass";
 import Link from "next/link";
-import React from "react";
+import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { isLoggedIn } from "../lib/authClient";
+import Spinner from "@/components/Spinner";
 
 export default function Classes() {
-  const [showCreateClass, setShowCreateClass] = React.useState(false);
+     const router = useRouter();
+    const [checkingAuth, setCheckingAuth] = useState(true);
+  const [showCreateClass, setShowCreateClass] = useState(false);
   const instructorEmail = "instructor@example.com";
+    useEffect(() => {
+      const authenticated = isLoggedIn();
+  
+      if (!authenticated) {
+        router.replace("/login");
+      } else {
+        setCheckingAuth(false);
+      }
+    }, [router]);
+  
+    if (checkingAuth) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Spinner />
+        </div>
+      );
+    }
+  
   return (
     <main className="font-figtree max-w-4xl mx-auto px-6 py-8 rounded shadow-md glass-card-maroon">
      <div className="flex items-center gap-3 mt-6">

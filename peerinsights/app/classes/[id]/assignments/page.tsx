@@ -1,7 +1,7 @@
 // app/classes/[id]/assignments/page.tsx
 "use client";
 
-import * as React from "react";
+import { useEffect, useState} from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
   useClassDetails,
@@ -9,6 +9,8 @@ import {
   useCreateAssignment,
   useUpdateAssignment,
 } from "@/app/lib/queries";
+import { isLoggedIn } from "@/app/lib/authClient";
+import Spinner from "@/components/Spinner";
 
 // ---------- types ----------
 type Assignment = {
@@ -27,6 +29,7 @@ function iso(d: string) {
 
 export default function AssignmentsPage() {
   const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   // route params (if you later mount this at /classes/[id]/assignments)
   const params = useParams<{ id: string }>();
@@ -58,23 +61,40 @@ export default function AssignmentsPage() {
   const updateAssignment = useUpdateAssignment();
 
   // UI state
-  const [showCreate, setShowCreate] = React.useState(false);
-  const [createForm, setCreateForm] = React.useState({
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({
     name: "",
     start: "",
     end: "",
   });
-  const [createMsg, setCreateMsg] = React.useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [createMsg, setCreateMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Inline edit state per row
-  const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [editForm, setEditForm] = React.useState({
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
     name: "",
     start: "",
     end: "",
   });
 
+  useEffect(() => {
+    const authenticated = isLoggedIn();
+
+    if (!authenticated) {
+      router.replace("/login");
+    } else {
+      setCheckingAuth(false);
+    }
+  }, [router]);
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
   // ---------- handlers ----------
   function openCreate() {
     setErrorMsg(null);

@@ -1,9 +1,10 @@
 "use client";
 
-import * as React from "react";
+
 import * as Papa from "papaparse";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useClassDetails, useUpdateTeams } from "@/app/lib/queries";
+import { useMemo, useRef, useState } from "react";
 
 // ---------- helpers ----------
 type Row = Record<string, string>;
@@ -53,14 +54,15 @@ export default function EditClassPage() {
   } = useClassDetails(instructorEmail, section);
   const updateTeamsMutation = useUpdateTeams();
 
-  const [csvSummary, setCsvSummary] = React.useState<ParsedSummary>({
+  const [csvSummary, setCsvSummary] = useState<ParsedSummary>({
     className: null,
     groups: [],
   });
-  const [parsing, setParsing] = React.useState(false);
-  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
-  const fileRef = React.useRef<HTMLInputElement>(null);
+  const [parsing, setParsing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
 
   // ---------- CSV upload ----------
   function onChooseFile() {
@@ -141,7 +143,7 @@ export default function EditClassPage() {
   }
 
   // ---------- DIFF ----------
-  const diff = React.useMemo(() => {
+  const diff = useMemo(() => {
     if (!cls || csvSummary.groups.length === 0) return null;
 
     // existing groups -> name => members(full name[])
