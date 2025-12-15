@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, FormEvent} from "react";
+import { useState, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { useLoginUser } from "../lib/queries";
 import { useRouter } from "next/navigation";
 import AuthGraphic from "@/components/AuthGraphic";
-
+import Spinner from "@/components/Spinner";
+import { isLoggedIn } from "../lib/authClient";
 
 type Role = "instructor" | "ta";
 
@@ -17,12 +18,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   const email = `${emailLocal}@vt.edu`;
 
   const router = useRouter();
   const { mutate: login, isPending, error: mutationError } = useLoginUser();
- 
+
+  // 🚫 Redirect if already logged in
+  useEffect(() => {
+    const authenticated = isLoggedIn();
+    if (authenticated) {
+      router.replace("/"); // or "/" if you want home instead
+    } else {
+      setCheckingAuth(false);
+    }
+  }, [router]);
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -36,14 +48,13 @@ export default function LoginPage() {
       {
         email,
         password,
-        role, // "instructor" | "ta"
+        role,
       },
       {
         onSuccess: (data) => {
-          // TODO: store token somewhere (cookie / localStorage)
           localStorage.setItem("peerinsights_token", data.token);
           localStorage.setItem("peerinsights_user", JSON.stringify(data.user));
-          router.push("/classes"); // 🔁 change to your dashboard route
+          router.push("/");
         },
         onError: (err) => {
           setFormError(err.message || "Login failed");
@@ -54,10 +65,17 @@ export default function LoginPage() {
 
   const displayError = formError || mutationError?.message;
 
+  // Show spinner while deciding where to go
+  if (checkingAuth) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-light-maroon/30">
+        <Spinner />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-dvh bg-light-maroon/30 flex gap-5 items-center justify-center p-6">
-      {/* <h1 className="text-3xl font-bold text-primary">PeerInsights</h1>
-       */}
       <AuthGraphic />
       <motion.main
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -123,7 +141,7 @@ export default function LoginPage() {
                 className="input-field pr-10"
                 placeholder="••••••••"
               />
-              {password ? (
+              {password && (
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
@@ -131,8 +149,6 @@ export default function LoginPage() {
                 >
                   {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                 </button>
-              ) : (
-                <div />
               )}
             </div>
 

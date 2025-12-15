@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { useRegisterUser } from "../lib/queries";
 import { useRouter } from "next/navigation";
 import AuthGraphic from "@/components/AuthGraphic";
+import { isLoggedIn } from "../lib/authClient";
+import Spinner from "@/components/Spinner";
 
 type Role = "instructor" | "ta"; // ✅ backend values only
 
@@ -18,6 +20,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   const email = `${emailLocal}@vt.edu`;
 
@@ -27,6 +30,16 @@ export default function RegisterPage() {
     isPending,
     error: mutationError,
   } = useRegisterUser();
+
+    // 🚫 Redirect if already logged in
+    useEffect(() => {
+      const authenticated = isLoggedIn();
+      if (authenticated) {
+        router.replace("/"); // or "/" if you want home instead
+      } else {
+        setCheckingAuth(false);
+      }
+    }, [router]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -58,7 +71,14 @@ export default function RegisterPage() {
   };
 
   const displayError = formError || mutationError?.message;
-
+  // Show spinner while deciding where to go
+  if (checkingAuth) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-light-maroon/30">
+        <Spinner />
+      </div>
+    );
+  }
   return (
     <div className="min-h-dvh bg-light-maroon/30 flex gap-5 items-center justify-center p-6">
       {/* <h1 className="text-3xl font-bold text-primary">PeerInsights</h1> */}

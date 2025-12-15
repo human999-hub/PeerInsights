@@ -31,7 +31,7 @@ function pickKey(
 export default function CreateClass() {
   const [courseName, setCourseName] = React.useState("");
   const [term, setTerm] = React.useState("");
-  const [year, setYear] = React.useState("");
+  const [year, setYear] = React.useState(String(new Date().getFullYear()));
   const [csvSummary, setCsvSummary] = React.useState<ParsedSummary>({
     className: null,
     groups: [],
@@ -44,7 +44,7 @@ export default function CreateClass() {
   const fileRef = React.useRef<HTMLInputElement>(null);
   // const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
-  const createClassMutation =  useCreateClass();
+  const createClassMutation = useCreateClass();
 
   function onChooseFile() {
     fileRef.current?.click();
@@ -129,19 +129,32 @@ export default function CreateClass() {
       },
     });
   }
- function resetForm() {
+  function resetForm() {
     setCourseName("");
     setTerm("");
     setYear("");
-    setCsvSummary({ className: null, groups: [] });
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    // Reset CSV summary completely
+    setCsvSummary({
+      className: null,
+      groups: [],
+      multiClassWarning: undefined,
+    });
+
+    // Clear file input
     if (fileRef.current) fileRef.current.value = "";
   }
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-      setErrorMsg(null);
+    setErrorMsg(null);
     setSuccessMsg(null);
-   if (!csvSummary.className || csvSummary.groups.length === 0) {
-      setErrorMsg("Please upload a CSV with a class value and at least one group.");
+    if (!csvSummary.className || csvSummary.groups.length === 0) {
+      setErrorMsg(
+        "Please upload a CSV with a class value and at least one group."
+      );
       return;
     }
     const payload: CreateClassRequest = {
@@ -152,7 +165,10 @@ export default function CreateClass() {
       term: term.trim(),
       year: Number(year),
       class: csvSummary.className, // single class from CSV
-      groups: csvSummary.groups.map(g => ({groupName: g.groupName, members: g.members})), // [{ groupName, members: [...] }]
+      groups: csvSummary.groups.map((g) => ({
+        groupName: g.groupName,
+        members: g.members,
+      })), // [{ groupName, members: [...] }]
     };
     // // console.log("Submit payload:", payload);
     // // alert("Submitted! (See console for payload)");
@@ -172,20 +188,24 @@ export default function CreateClass() {
     // } catch (err: any) {
     //   setErrorMsg(err?.message || "Failed to create class.");
     // }
-   createClassMutation
-    .mutateAsync(payload)
-    .then((res) => {
-      setSuccessMsg(`Class created: ${res.class.name} (${res.class.section})`);
-      resetForm();
-      window.setTimeout(() => setSuccessMsg(null), 4000);
-    })
-    .catch((err: any) => setErrorMsg(err?.message || "Failed to create class."));
+    createClassMutation
+      .mutateAsync(payload)
+      .then((res) => {
+        setSuccessMsg(
+          `Class created: ${res.class.name} (${res.class.section})`
+        );
+        resetForm();
+        window.setTimeout(() => setSuccessMsg(null), 4000);
+      })
+      .catch((err: any) =>
+        setErrorMsg(err?.message || "Failed to create class.")
+      );
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 surface-card">
+    <div className="max-w-3xl mx-auto p-6">
       <h2 className="text-2xl font-semibold mb-4">Create a New Class</h2>
-  {/* Success banner */}
+      {/* Success banner */}
       {/* {successMsg && (
         <div
           className="mb-4 rounded-xl border border-secondary/70 bg-secondary/30 text-primary px-4 py-3"
@@ -195,8 +215,16 @@ export default function CreateClass() {
           {successMsg}
         </div>
       )} */}
-        {successMsg && <div className="mb-4 rounded-xl border border-emerald-600/50 bg-emerald-100/60 text-emerald-900 px-4 py-3">{successMsg}</div>}
-      {errorMsg && <div className="mb-4 rounded-xl border border-rose-600/50 bg-rose-100/60 text-rose-900 px-4 py-3">{errorMsg}</div>}
+      {successMsg && (
+        <div className="mb-4 rounded-xl border border-emerald-600/50 bg-emerald-100/60 text-emerald-900 px-4 py-3">
+          {successMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div className="mb-4 rounded-xl border border-rose-600/50 bg-rose-100/60 text-rose-900 px-4 py-3">
+          {errorMsg}
+        </div>
+      )}
 
       {/* ===== Upload CSV ===== */}
       <div className="mb-6">
@@ -244,27 +272,50 @@ export default function CreateClass() {
             <label className="block text-sm font-medium mb-1" htmlFor="term">
               Term
             </label>
-            <input
+            <select
               id="term"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder="Fall"
               required
               className="input-field"
-            />
+            >
+              <option value="" disabled>
+                Select term
+              </option>
+              <option value="Spring">Spring</option>
+              <option value="Summer">Summer</option>
+              <option value="Fall">Fall</option>
+              <option value="Winter">Winter</option>
+            </select>
           </div>
+
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="year">
               Year
             </label>
-            <input
+
+            <select
               id="year"
               value={year}
               onChange={(e) => setYear(e.target.value)}
-              placeholder="2025"
               required
               className="input-field"
-            />
+            >
+              <option value="" disabled>
+                Select year
+              </option>
+
+              {Array.from({ length: 15 }).map((_, i) => {
+                const currentYear = new Date().getFullYear();
+                const y = currentYear - 2 + i; // gives range like 2023–2037 dynamically
+
+                return (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                );
+              })}
+            </select>
           </div>
         </div>
 
@@ -335,8 +386,22 @@ export default function CreateClass() {
 
         {/* ===== Submit ===== */}
         <div className="pt-4">
-          <button className="button-primary" type="submit" disabled={createClassMutation.isPending}>
+          <button
+            className="button-primary"
+            type="submit"
+            disabled={createClassMutation.isPending}
+          >
             {createClassMutation.isPending ? "Submitting..." : "Submit"}
+          </button>
+
+          {/* reset form button */}
+          <button
+            type="button"
+            className="ml-4 button-secondary"
+            onClick={resetForm}
+            disabled={createClassMutation.isPending}
+          >
+            Reset
           </button>
         </div>
       </form>

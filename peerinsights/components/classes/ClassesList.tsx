@@ -41,11 +41,11 @@ export default function ClassesList({
 
   return (
     <>
-      <div className="max-w-5xl mx-auto surface-card rounded-2xl overflow-hidden">
+     <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-white/60">
+               <tr className="bg-[#d09fa8]/30">
                 <th className="px-5 py-3 text-left font-semibold">Class</th>
                 <th className="px-5 py-3 text-left font-semibold">Term</th>
                 <th className="px-5 py-3 text-left font-semibold">Year</th>

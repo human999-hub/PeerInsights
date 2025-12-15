@@ -48,6 +48,21 @@ export async function createAssignment(
 }
 
 // List Assignments by Class
+// export async function fetchAssignmentsByClass(
+//   instructorEmail: string,
+//   section: string,
+//   opts?: { signal?: AbortSignal }
+// ): Promise<ListAssignmentsResponse["assignments"]> {
+//   const url = `/api/assignments/by-class?instructor_email=${encodeURIComponent(
+//     instructorEmail
+//   )}&section=${encodeURIComponent(section)}`;
+//   const res = await fetch(url, { method: "GET", cache: "no-store", signal: opts?.signal });
+//   if (!res.ok) throw new Error(`Failed to load assignments (${res.status})`);
+//   const json = await res.json();
+//   const parsed = ListAssignmentsResponseSchema.parse(json);
+//   return parsed.assignments;
+// }
+
 export async function fetchAssignmentsByClass(
   instructorEmail: string,
   section: string,
@@ -56,12 +71,36 @@ export async function fetchAssignmentsByClass(
   const url = `/api/assignments/by-class?instructor_email=${encodeURIComponent(
     instructorEmail
   )}&section=${encodeURIComponent(section)}`;
-  const res = await fetch(url, { method: "GET", cache: "no-store", signal: opts?.signal });
+
+  const res = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+    signal: opts?.signal,
+  });
+
   if (!res.ok) throw new Error(`Failed to load assignments (${res.status})`);
+
   const json = await res.json();
-  const parsed = ListAssignmentsResponseSchema.parse(json);
+
+  // Normalize backend fields -> frontend fields
+  const normalized = (Array.isArray(json.assignments) ? json.assignments : []).map(
+    (a: any) => ({
+      _id: a.assignment_id,
+      name: a.assignment_name,
+      start_date: a.start_date,
+      end_date: a.end_date,
+    })
+  );
+
+  // Now validate using your existing zod schema (keeps it safe)
+  const parsed = ListAssignmentsResponseSchema.parse({
+    ok: true,
+    assignments: normalized,
+  });
+
   return parsed.assignments;
 }
+
 
 // UPDATE (edit)
 export async function updateAssignment(

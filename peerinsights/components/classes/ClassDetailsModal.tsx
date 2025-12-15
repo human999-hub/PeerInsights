@@ -22,7 +22,11 @@ export default function ClassDetailsModal({
       footer={
         <div className="flex items-center justify-between gap-3">
           <Link
-            href={`/classes/${cls._id}/assignments`}
+            href={`/classes/${
+                          cls._id
+                        }/assignments?instructor_email=${encodeURIComponent(
+                          cls.instructor.email
+                        )}&section=${encodeURIComponent(cls.section)}`}
             className="button-ghost"
           >
             Go to Assignments
