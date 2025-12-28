@@ -20,6 +20,7 @@ import {
   RegisterResponse,
   LoginRequest,
   LoginResponse,
+  InstructorSummaryResponse,
 } from "./zodSchemas";
 import { createClass, fetchClassesByInstructor, fetchClassDetails, updateClassTeams } from "./classesApi";
 import {
@@ -28,6 +29,7 @@ import {
   updateAssignment,
 } from "./assignmentsApi";
 import { registerUser, loginUser } from "./authApi";
+import { fetchInstructorSummary } from "./responsesApi";
 
 // GET /api/form
 export function useFormMetaQuery(req: FormRequest | null, enabled = true) {
@@ -130,5 +132,16 @@ export function useRegisterUser() {
 export function useLoginUser() {
   return useMutation<LoginResponse, Error, LoginRequest>({
     mutationFn: (payload) => loginUser(payload),
+  });
+}
+
+export function useInstructorSummary(instructorEmail: string | null) {
+  return useQuery<InstructorSummaryResponse, Error>({
+    queryKey: ["instructor-summary", instructorEmail],
+    enabled: !!instructorEmail,
+    queryFn: ({ signal }) => {
+      if (!instructorEmail) throw new Error("Missing instructor email");
+      return fetchInstructorSummary(instructorEmail, { signal });
+    },
   });
 }

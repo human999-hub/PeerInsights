@@ -357,3 +357,96 @@ export const LoginResponseSchema = z.object({
 });
 
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+
+// ---- Responses: Instructor Summary (GET /api/responses/instructor-summary) ----
+
+export const UserRoleSchema = z.enum(["student", "instructor", "ta"]);
+
+export const SummaryUserSchema = z.object({
+  user_id: z.string(),
+  email: z.string().email(),
+  first_name: z.string(),
+  last_name: z.string(),
+  role: UserRoleSchema,
+});
+
+export const SummaryResponseItemSchema = z.object({
+  response_id: z.string(),
+  from_student_id: z.string(),
+  to_student_id: z.string(),
+  question_id: z.string(),
+  rating: z.number().int(),
+});
+
+export const SummaryCommentItemSchema = z.object({
+  comment_id: z.string(),
+  from_student_id: z.string(),
+  to_student_id: z.string(),
+  question_id: z.string(),
+  comment_text: z.string(),
+});
+
+export const SummaryPraiseItemSchema = z.object({
+  praise_id: z.string(),
+  from_student_id: z.string(),
+  to_student_id: z.string(),
+  question_id: z.string(),
+  praise_text: z.string(),
+});
+
+export const SummarySubmissionSchema = z.object({
+  submission_id: z.string(),
+  assignment_id: z.string(),
+  team_id: z.string(),
+  from_student_id: z.string(),
+  submitted_at: z.string().datetime(),
+  single_lock: z.string(), // looks like "S"
+  responses: z.array(SummaryResponseItemSchema),
+  comments: z.array(SummaryCommentItemSchema),
+  praises: z.array(SummaryPraiseItemSchema),
+});
+
+export const SummaryAssignmentSchema = z.object({
+  assignment_id: z.string(),
+  title: z.string(),
+  start_date: z.string().datetime(),
+  due_date: z.string().datetime(),
+  allow_multiple_submissions: z.enum(["Y", "N"]),
+  active: z.enum(["Y", "N"]),
+  linked_team_ids: z.array(z.string()),
+  submissions: z.array(SummarySubmissionSchema),
+});
+
+export const SummaryTeamSchema = z.object({
+  team_id: z.string(),
+  team_number: z.string(),
+  members: z.array(SummaryUserSchema),
+});
+
+export const SummaryClassSchema = z.object({
+  class_id: z.string(),
+  name: z.string(),
+  section: z.string(),
+  term: z.string(),
+  year: z.number().int(),
+  teams: z.array(SummaryTeamSchema),
+  assignments: z.array(SummaryAssignmentSchema),
+});
+
+export const InstructorSummaryInstructorSchema = z.object({
+  _id: z.string(),
+  email: z.string().email(),
+  first_name: z.string(),
+  last_name: z.string(),
+  role: z.literal("instructor"),
+});
+
+export const InstructorSummaryResponseSchema = z.object({
+  ok: z.literal(true),
+  instructor: InstructorSummaryInstructorSchema,
+  classes: z.array(SummaryClassSchema),
+});
+
+export type InstructorSummaryResponse = z.infer<
+  typeof InstructorSummaryResponseSchema
+>;

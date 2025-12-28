@@ -1,68 +1,57 @@
-// app/(app)/responses/group/[teamId]/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Spinner from "@/components/Spinner";
-import { getCurrentUser } from "@/app/lib/authClient";
-
-type ApiResponse = any; // for demo: keep loose; tighten later
+import { getCurrentUser, isLoggedIn } from "@/app/lib/authClient";
+import { useInstructorSummary } from "@/app/lib/queries";
 
 export default function GroupAssignmentsPage() {
   const router = useRouter();
   const params = useParams<{ teamId: string }>();
   const searchParams = useSearchParams();
+
   const teamId = params.teamId;
   const classId = searchParams.get("classId");
-const instructorEmailFromQuery = searchParams.get("instructorEmail");
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const instructorEmailFromQuery = searchParams.get("instructorEmail");
 
-  useEffect(() => {
-    const user = getCurrentUser();
-    const email =  instructorEmailFromQuery ?? user?.email ?? "instructor@example.com";
-
-    const run = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const res = await fetch(
-          `/api/responses/instructor-summary?instructor_email=${encodeURIComponent(
-            email
-          )}`
-        );
-
-        const json = await res.json();
-        if (!json?.ok) throw new Error("API returned ok=false");
-
-        setData(json);
-      } catch (e: any) {
-        setError(e?.message ?? "Something went wrong");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    run();
+  // Determine email (query param wins)
+  const instructorEmail = useMemo(() => {
+    if (instructorEmailFromQuery) return instructorEmailFromQuery;
+    if (isLoggedIn()) return getCurrentUser()?.email ?? "";
+    return "instructor@example.com"; // dev fallback
   }, [instructorEmailFromQuery]);
+
+  // React Query fetch (Zod-validated inside responsesApi)
+  const {
+    data,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useInstructorSummary(instructorEmail);
 
   const selected = useMemo(() => {
     if (!data?.classes || !teamId || !classId) return null;
 
-    const cls = data.classes.find((c: any) => c.class_id === classId);
+    const cls = data.classes.find((c) => c.class_id === classId);
     if (!cls) return null;
 
-    const team = cls.teams?.find((t: any) => t.team_id === teamId);
+    const team = cls.teams?.find((t) => t.team_id === teamId);
     if (!team) return null;
 
-    const assignments = (cls.assignments ?? []).filter((a: any) =>
+    const assignments = (cls.assignments ?? []).filter((a) =>
       (a.linked_team_ids ?? []).includes(teamId)
     );
+    
 
     return { cls, team, assignments };
   }, [data, teamId, classId]);
+useEffect(() => {
+  console.log("[GroupAssignmentsPage] params/teamId:", teamId);
+  console.log("[GroupAssignmentsPage] query/classId:", classId);
+  console.log("[GroupAssignmentsPage] query/instructorEmail:", instructorEmailFromQuery);
+  console.log("[GroupAssignmentsPage] resolved instructorEmail used for fetch:", instructorEmail);
+}, [teamId, classId, instructorEmailFromQuery, instructorEmail]);
 
   if (loading) {
     return (
@@ -76,13 +65,22 @@ const instructorEmailFromQuery = searchParams.get("instructorEmail");
     return (
       <div className="bg-white/90 rounded-2xl border border-orange-100 p-6">
         <p className="text-sm text-red-600 font-medium">Error</p>
-        <p className="text-sm text-gray-700 mt-1">{error}</p>
-        <button
-          onClick={() => router.back()}
-          className="mt-4 px-4 py-2 rounded-xl border border-gray-300 text-sm"
-        >
-          Go back
-        </button>
+        <p className="text-sm text-gray-700 mt-1">{error.message}</p>
+
+        <div className="mt-4 flex gap-3">
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 rounded-xl border border-gray-300 text-sm cursor-pointer"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => router.back()}
+            className="px-4 py-2 rounded-xl border border-gray-300 text-sm cursor-pointer"
+          >
+            Go back
+          </button>
+        </div>
       </div>
     );
   }
@@ -95,7 +93,7 @@ const instructorEmailFromQuery = searchParams.get("instructorEmail");
         </p>
         <button
           onClick={() => router.back()}
-          className="mt-4 px-4 py-2 rounded-xl border border-gray-300 text-sm"
+          className="mt-4 px-4 py-2 rounded-xl border border-gray-300 text-sm cursor-pointer"
         >
           Go back
         </button>
@@ -111,7 +109,7 @@ const instructorEmailFromQuery = searchParams.get("instructorEmail");
       {/* Back */}
       <button
         onClick={() => router.push("/responses")}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white/80 text-sm"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white/80 text-sm  cursor-pointer"
       >
         ← Back to Responses
       </button>
@@ -139,7 +137,7 @@ const instructorEmailFromQuery = searchParams.get("instructorEmail");
         <div className="mt-4">
           <p className="text-gray-500 text-sm mb-1">Members</p>
           <ul className="text-sm text-gray-900 space-y-1">
-            {(team.members ?? []).map((m: any) => (
+            {(team.members ?? []).map((m) => (
               <li key={m.email}>
                 {m.first_name} {m.last_name}{" "}
                 <span className="text-xs text-gray-500">({m.email})</span>
@@ -162,10 +160,9 @@ const instructorEmailFromQuery = searchParams.get("instructorEmail");
           <p className="text-sm text-gray-600">No assignments found for this group.</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-3">
-            {assignments.map((a: any) => {
+            {assignments.map((a) => {
               const submissionsForTeam =
-                (a.submissions ?? []).filter((s: any) => s.team_id === teamId)
-                  .length ?? 0;
+                (a.submissions ?? []).filter((s) => s.team_id === teamId).length ?? 0;
 
               return (
                 <div
@@ -181,20 +178,22 @@ const instructorEmailFromQuery = searchParams.get("instructorEmail");
 
                   <div className="mt-3 text-xs text-gray-600 space-y-1">
                     <p>
-                      <span className="text-gray-500">Start:</span>{" "}
+                      <span className="text-gray-500">Start Date:</span>{" "}
                       {new Date(a.start_date).toLocaleDateString()}
                     </p>
                     <p>
-                      <span className="text-gray-500">Due:</span>{" "}
+                      <span className="text-gray-500">Due Date:</span>{" "}
                       {new Date(a.due_date).toLocaleDateString()}
                     </p>
                   </div>
 
                   <button
-                    className="mt-4 w-fit px-4 py-2 rounded-full bg-primary text-white text-sm font-medium"
+                    className="mt-4 w-fit px-4 py-2 rounded-full bg-primary text-white text-sm font-medium cursor-pointer hover:bg-black-800 transition"
                     onClick={() =>
-                      alert("to do: assignment detail page")
-                    }
+  router.push(
+    `/responses/group/${teamId}/assignment/${a.assignment_id}?classId=${classId}&instructorEmail=${encodeURIComponent(instructorEmail)}`
+  )
+}
                   >
                     View Responses
                   </button>
@@ -206,9 +205,9 @@ const instructorEmailFromQuery = searchParams.get("instructorEmail");
       </div>
 
       {/* Optional placeholder for demo */}
-      <div className="bg-white/90 rounded-2xl border border-orange-100 shadow-md p-6">
+      <div className="bg-white/90 flex flex-col justify-center rounded-2xl border border-orange-100 shadow-md p-6">
         <button
-          className="px-4 py-2 rounded-full bg-black text-white text-sm font-medium"
+          className="px-4 py-2 rounded-full bg-black text-white text-sm font-medium w-fit mx-auto cursor-pointer hover:bg-gray-800 transition"
           onClick={() => alert("to do: AI analysis")}
         >
           Analyze with AI
