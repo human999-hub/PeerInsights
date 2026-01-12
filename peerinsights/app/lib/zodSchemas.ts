@@ -369,30 +369,39 @@ export const SummaryUserSchema = z.object({
   last_name: z.string(),
   role: UserRoleSchema,
 });
+export const SummaryQuestionInfoSchema = z.object({
+  question_id: z.string().nullable(),
+  qid: z.string().nullable(),
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+});
 
 export const SummaryResponseItemSchema = z.object({
   response_id: z.string(),
   from_student_id: z.string(),
   to_student_id: z.string(),
-  question_id: z.string(),
+  question: SummaryQuestionInfoSchema,  // ✅ changed
   rating: z.number().int(),
 });
+
 
 export const SummaryCommentItemSchema = z.object({
   comment_id: z.string(),
   from_student_id: z.string(),
   to_student_id: z.string(),
-  question_id: z.string(),
+  question: SummaryQuestionInfoSchema,  // ✅ changed
   comment_text: z.string(),
 });
+
 
 export const SummaryPraiseItemSchema = z.object({
   praise_id: z.string(),
   from_student_id: z.string(),
   to_student_id: z.string(),
-  question_id: z.string(),
+  question: SummaryQuestionInfoSchema.nullable(), // ✅ can be null
   praise_text: z.string(),
 });
+
 
 export const SummarySubmissionSchema = z.object({
   submission_id: z.string(),
@@ -432,6 +441,9 @@ export const SummaryClassSchema = z.object({
   teams: z.array(SummaryTeamSchema),
   assignments: z.array(SummaryAssignmentSchema),
 });
+
+
+
 
 export const InstructorSummaryInstructorSchema = z.object({
   _id: z.string(),

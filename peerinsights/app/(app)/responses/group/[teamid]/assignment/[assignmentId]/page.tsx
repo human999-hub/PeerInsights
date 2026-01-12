@@ -1,3 +1,4 @@
+// app/(app)/responses/group/[teamId]/assignment/[assignmentId]/page.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -222,7 +223,7 @@ export default function AssignmentResponsesPage() {
                                 <ul className="list-disc pl-5">
                                   {r.map((x) => (
                                     <li key={x.response_id}>
-                                      Q: {x.question_id} — Rating: {x.rating}
+                                      Q: {x.question?.title ?? x.question?.qid ?? x.question?.question_id ?? "Unknown question"} — Rating: {x.rating}
                                     </li>
                                   ))}
                                 </ul>
@@ -235,7 +236,7 @@ export default function AssignmentResponsesPage() {
                                 <ul className="list-disc pl-5">
                                   {c.map((x) => (
                                     <li key={x.comment_id}>
-                                      Q: {x.question_id} — {x.comment_text}
+                                     Q: {x.question?.title ?? x.question?.qid ?? x.question?.question_id ?? "Unknown question"} — {x.comment_text}
                                     </li>
                                   ))}
                                 </ul>
@@ -248,7 +249,7 @@ export default function AssignmentResponsesPage() {
                                 <ul className="list-disc pl-5">
                                   {p.map((x) => (
                                     <li key={x.praise_id}>
-                                      Q: {x.question_id} — {x.praise_text}
+                                     Q: {x.question?.title ?? x.question?.qid ?? x.question?.question_id ?? "General"} — {x.praise_text}
                                     </li>
                                   ))}
                                 </ul>
