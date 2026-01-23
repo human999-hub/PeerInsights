@@ -11,18 +11,9 @@ export default function GroupCard({
   teamId,
   teamName,
   members,
-    classId,
-     instructorEmail, 
+  classId, 
 }: GroupCardProps) {
   const router = useRouter();
-
-//   const handleClick = () => {
-//     // Placeholder for next screen
-//     // router.push(`/responses/group/${teamId}`);
-
-//     router.push(`/responses/group/${team.team_id}?classId=${cls.class_id}`)
-//     console.log("Navigate to group:", teamId);
-//   };
 
   return (
     <div className="bg-white rounded-2xl shadow p-5 flex items-center justify-between gap-6">
@@ -38,13 +29,12 @@ export default function GroupCard({
 
         <div className="text-sm text-gray-700">
           <span className="font-medium font-semibold">Members:</span>{" "}
-          {members.map((m, idx) => (
+          {members.map((m) => (
             <div key={m.user_id}>
               {m.first_name} {m.last_name}
               <span className="text-gray-400 text-xs ml-1">
                 ({m.email})
               </span>
-              {/* {idx < members.length - 1 && ", "} */}
             </div>
           ))}
         </div>
@@ -52,12 +42,7 @@ export default function GroupCard({
 
       {/* CTA */}
       <button
-         onClick={() =>   router.push(
-            `/responses/group/${teamId}?classId=${classId}&instructorEmail=${encodeURIComponent(
-              instructorEmail
-            )}`
-          )
-  }
+          onClick={() => router.push(`/responses/group/${teamId}?classId=${encodeURIComponent(classId)}`)}
         className="button-primary shrink-0 px-4 py-2 rounded-full text-white text-sm cursor-pointer transition"
       >
         See Assignment Responses

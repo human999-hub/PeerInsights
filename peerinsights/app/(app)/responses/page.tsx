@@ -1,3 +1,4 @@
+// peerinsights/app/(app)/responses/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,8 +8,8 @@ import Link from "next/link";
 import { getCurrentUser, isLoggedIn } from "@/app/lib/authClient";
 import GroupCard from "@/components/responses/GroupCard";
 
-import { useInstructorSummary } from "@/app/lib/queries";
-import { ClassItem, Team, GroupCardModel } from "@/app/(app)/responses/types";
+import { useInstructorSummaryLite } from "@/app/lib/queries";
+import { GroupCardModel } from "@/app/(app)/responses/types";
 
 export default function ResponsesPage() {
   const router = useRouter();
@@ -17,13 +18,7 @@ export default function ResponsesPage() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>("ALL");
   const [selectedSection, setSelectedSection] = useState<string>("ALL");
 
-  // Auth-derived email (stable)
-  // const userEmail = useMemo(() => {
-  //   if (!isLoggedIn()) return null;
-  //   const u = getCurrentUser();
-  //   return u?.email ?? null;
-  // }, []);
-const userEmail = isLoggedIn() ? getCurrentUser()?.email ?? null : null;
+  const userEmail = isLoggedIn() ? getCurrentUser()?.email ?? null : null;
 
   // Redirect if not logged in
   useEffect(() => {
@@ -36,7 +31,7 @@ const userEmail = isLoggedIn() ? getCurrentUser()?.email ?? null : null;
     isLoading: loading,
     error,
     refetch,
-  } = useInstructorSummary(userEmail);
+  } = useInstructorSummaryLite(userEmail);
 
   // Flatten groups
   const allGroupCards: GroupCardModel[] = useMemo(() => {
@@ -44,16 +39,22 @@ const userEmail = isLoggedIn() ? getCurrentUser()?.email ?? null : null;
 
     const out: GroupCardModel[] = [];
     data.classes.forEach((cls: any) => {
-      cls.teams.forEach((team: any) => {
+      const classId = cls.class_id;
+      const className = cls.name ?? "";
+      const section = cls.section ?? "";
+      const term = cls.term ?? "";
+      const year = cls.year ?? 0;
+
+      (cls.teams ?? []).forEach((team: any) => {
         out.push({
-          classId: cls.class_id,
-          className: cls.name,
-          section: cls.section,
-          term: cls.term,
-          year: cls.year,
+          classId,
+          className,
+          section,
+          term,
+          year,
           teamId: team.team_id,
           teamName: team.team_number,
-          members: team.members,
+          members: team.members ?? [],
         });
       });
     });
@@ -66,17 +67,28 @@ const userEmail = isLoggedIn() ? getCurrentUser()?.email ?? null : null;
     if (!data?.classes) return [];
     return data.classes.map((cls: any) => ({
       value: cls.class_id,
-      label: `${cls.name} (${cls.term} ${cls.year})`,
-      section: cls.section,
+      label: `${cls.name ?? "Untitled course"} (${cls.term ?? "Unknown term"} ${cls.year ?? ""})`.trim(),
+      section: cls.section ?? "",
     }));
   }, [data]);
 
+  // const sectionOptions = useMemo(() => {
+  //   if (!data?.classes || selectedCourseId === "ALL") return [];
+  //   const cls = data.classes.find((c: any) => c.class_id === selectedCourseId);
+  //   if (!cls) return [];
+  //   const sec = cls.section ?? "";
+  //   return [{ value: sec, label: sec }] : [];
+  // }, [data, selectedCourseId]);
+
   const sectionOptions = useMemo(() => {
-    if (!data?.classes || selectedCourseId === "ALL") return [];
-    const cls = data.classes.find((c: any) => c.class_id === selectedCourseId);
-    if (!cls) return [];
-    return [{ value: cls.section, label: cls.section }];
-  }, [data, selectedCourseId]);
+  if (!data?.classes || selectedCourseId === "ALL") return [];
+  const cls = data.classes.find((c: any) => c.class_id === selectedCourseId);
+  if (!cls) return [];
+  const sec = cls.section ?? "";
+  if (!sec) return [];
+  return [{ value: sec, label: sec }];
+}, [data, selectedCourseId]);
+
 
   useEffect(() => {
     if (selectedCourseId === "ALL") setSelectedSection("ALL");
@@ -109,7 +121,7 @@ const userEmail = isLoggedIn() ? getCurrentUser()?.email ?? null : null;
     return (
       <div className="p-10">
         <h1 className="text-3xl font-semibold mb-4">Responses</h1>
-        <p className="text-red-600">Unable to determine instructor email.</p>
+        <p className="text-red-600">Unable to determine instructor email. Please login again.</p>
       </div>
     );
   }
@@ -125,6 +137,8 @@ const userEmail = isLoggedIn() ? getCurrentUser()?.email ?? null : null;
       </div>
     );
   }
+
+  const effectiveInstructorEmail = data?.instructor?.email ?? userEmail;
 
   return (
     <div className="p-10">
@@ -200,14 +214,14 @@ const userEmail = isLoggedIn() ? getCurrentUser()?.email ?? null : null;
           <div className="space-y-4">
             {filteredGroups.map((g) => (
               <GroupCard
-                key={g.teamId}
+                key={`${g.classId}-${g.teamId}`}
                 courseName={g.className}
                 section={g.section}
                 teamId={g.teamId}
                 teamName={g.teamName}
                 members={g.members}
                 classId={g.classId}
-                instructorEmail={data?.instructor?.email ?? userEmail}
+                instructorEmail={effectiveInstructorEmail}
               />
             ))}
 

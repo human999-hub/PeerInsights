@@ -462,3 +462,167 @@ export const InstructorSummaryResponseSchema = z.object({
 export type InstructorSummaryResponse = z.infer<
   typeof InstructorSummaryResponseSchema
 >;
+
+// ---- Responses: Instructor Summary Lite (GET /api/responses/instructor-summary-lite) ----
+
+export const LiteInstructorSchema = z.object({
+  _id: z.string(),
+  email: z.string().email(),
+  first_name: z.string().nullable().optional().default(""),
+  last_name: z.string().nullable().optional().default(""),
+  role: z.enum(["instructor", "ta"]),
+});
+
+export const LiteMemberSchema = z.object({
+  user_id: z.string(),
+  email: z.string().email().nullable().optional(),
+  first_name: z.string().nullable().optional(),
+  last_name: z.string().nullable().optional(),
+  role: z.enum(["student", "instructor", "ta"]).nullable().optional(),
+});
+
+export const LiteTeamSchema = z.object({
+  team_id: z.string(),
+  team_number: z.string(),
+  members_count: z.number().int(),
+  members: z.array(LiteMemberSchema),
+});
+
+export const LiteClassSchema = z.object({
+  class_id: z.string(),
+  name: z.string().nullable().optional(),
+  section: z.string().nullable().optional(),
+  term: z.string().nullable().optional(),
+  year: z.number().int().nullable().optional(),
+  teams: z.array(LiteTeamSchema),
+});
+
+export const InstructorSummaryLiteResponseSchema = z.object({
+  ok: z.literal(true),
+  instructor: LiteInstructorSchema,
+  classes: z.array(LiteClassSchema),
+});
+
+export type InstructorSummaryLiteResponse = z.infer<
+  typeof InstructorSummaryLiteResponseSchema
+>;
+
+
+// ---- Responses: Group Assignments (GET /api/responses/group-assignments) ----
+
+export const GroupAssignmentsClassSchema = z.object({
+  class_id: z.string(),
+  name: z.string().nullable().optional(),
+  section: z.string().nullable().optional(),
+  term: z.string().nullable().optional(),
+  year: z.number().int().nullable().optional(),
+});
+
+export const GroupAssignmentsMemberSchema = z.object({
+  user_id: z.string(),
+  email: z.string().email().nullable().optional(),
+  first_name: z.string().nullable().optional(),
+  last_name: z.string().nullable().optional(),
+});
+
+export const GroupAssignmentsTeamSchema = z.object({
+  team_id: z.string(),
+  team_number: z.string(),
+  members: z.array(GroupAssignmentsMemberSchema),
+});
+
+const YnOrBool = z.union([z.enum(["Y", "N"]), z.boolean()]);
+
+export const GroupAssignmentItemSchema = z.object({
+  assignment_id: z.string(),
+  title: z.string().nullable().optional(),
+  start_date: z.string().datetime(), // Date -> ISO string
+  due_date: z.string().datetime(),
+  active: YnOrBool,
+  allow_multiple_submissions: YnOrBool,
+  submissionsCount: z.number().int(),
+});
+
+export const GroupAssignmentsResponseSchema = z.object({
+  ok: z.literal(true),
+  class: GroupAssignmentsClassSchema,
+  team: GroupAssignmentsTeamSchema,
+  assignments: z.array(GroupAssignmentItemSchema),
+});
+
+export type GroupAssignmentsResponse = z.infer<
+  typeof GroupAssignmentsResponseSchema
+>;
+
+
+// ---- Responses: Assignment Detail (GET /api/responses/assignment-detail) ----
+
+export const AssignmentDetailQuestionInfoSchema = z.object({
+  question_id: z.string().nullable(),
+  qid: z.string().nullable(),
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+});
+
+export const AssignmentDetailResponseItemSchema = z.object({
+  response_id: z.string(),
+  from_student_id: z.string(),
+  to_student_id: z.string(),
+  question_id: z.string(),
+  question: AssignmentDetailQuestionInfoSchema,
+  rating: z.number().int().nullable().optional(),
+});
+
+export const AssignmentDetailCommentItemSchema = z.object({
+  comment_id: z.string(),
+  from_student_id: z.string(),
+  to_student_id: z.string(),
+  question_id: z.string(),
+  question: AssignmentDetailQuestionInfoSchema,
+  comment_text: z.string().nullable().optional(),
+});
+
+export const AssignmentDetailPraiseItemSchema = z.object({
+  praise_id: z.string(),
+  from_student_id: z.string(),
+  to_student_id: z.string(),
+  question_id: z.string().nullable(),
+  question: AssignmentDetailQuestionInfoSchema.nullable(),
+  praise_text: z.string().nullable().optional(),
+});
+
+export const AssignmentDetailSubmissionSchema = z.object({
+  submission_id: z.string(),
+  from_student_id: z.string(),
+  submitted_at: z.union([z.string().datetime(), z.string().nullable()]),
+  single_lock: z.string().nullable().optional(),
+  responses: z.array(AssignmentDetailResponseItemSchema),
+  comments: z.array(AssignmentDetailCommentItemSchema),
+  praises: z.array(AssignmentDetailPraiseItemSchema),
+});
+
+export const AssignmentDetailTeamSchema = z.object({
+  team_id: z.string(),
+  team_number: z.string(),
+  members: z.array(GroupAssignmentsMemberSchema), // same shape is fine
+});
+
+export const AssignmentDetailAssignmentSchema = z.object({
+  assignment_id: z.string(),
+  title: z.string().nullable().optional(),
+  start_date: z.string().datetime(),
+  due_date: z.string().datetime(),
+  active: YnOrBool,
+  allow_multiple_submissions: YnOrBool,
+});
+
+export const AssignmentDetailResponseSchema = z.object({
+  ok: z.literal(true),
+  assignment: AssignmentDetailAssignmentSchema,
+  team: AssignmentDetailTeamSchema,
+  submissions: z.array(AssignmentDetailSubmissionSchema),
+});
+
+export type AssignmentDetailResponse = z.infer<
+  typeof AssignmentDetailResponseSchema
+>;
