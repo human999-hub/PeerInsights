@@ -197,8 +197,13 @@ export default function CreateClass() {
         resetForm();
         window.setTimeout(() => setSuccessMsg(null), 4000);
       })
-      .catch((err: any) =>
-        setErrorMsg(err?.message || "Failed to create class.")
+      .catch((err) =>{
+        if(err instanceof Error){
+          setErrorMsg(err.message || "Failed to create class.");
+        } else {
+          setErrorMsg("Failed to create class.");
+        }
+      }
       );
   }
 

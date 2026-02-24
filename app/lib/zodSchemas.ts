@@ -4,7 +4,9 @@ import { z } from "zod";
 /** -------- fetch form (POST /api/form) ---------- */
 export const FormRequestSchema = z.object({
   student_email: z.string().email(),
-  team_number: z.string().regex(/^Group_\d+$/, "Expected something like Group_1"),
+  team_number: z
+    .string()
+    .regex(/^Group_\d+$/, "Expected something like Group_1"),
 });
 
 const StudentSchema = z.object({
@@ -41,9 +43,9 @@ const ScaleQuestionSchema = z.object({
   question_type: z.literal("scale"),
   scale_min: z.number().int(),
   scale_max: z.number().int(),
-//   scale_labels: z.record(z.string()), // "1": "label", ...
+  //   scale_labels: z.record(z.string()), // "1": "label", ...
 
-scale_labels: z.record(NumericStringKey, z.string()),
+  scale_labels: z.record(NumericStringKey, z.string()),
 });
 
 const TextQuestionSchema = z.object({
@@ -80,7 +82,6 @@ export type FormResponse = z.infer<typeof FormResponseSchema>;
 export type Question = z.infer<typeof QuestionSchema>;
 export type TeamMember = z.infer<typeof TeamMemberSchema>;
 
-
 export const RatingItemSchema = z.object({
   to_student_id: z.string(),
   question_id: z.string(),
@@ -90,13 +91,13 @@ export const RatingItemSchema = z.object({
 export const CommentItemSchema = z.object({
   to_student_id: z.string(),
   question_id: z.string(),
-  comment_text: z.string().max(5000).catch(""),  // keep ""
+  comment_text: z.string().max(5000).catch(""), // keep ""
 });
 
 export const PraiseItemSchema = z.object({
   to_student_id: z.string(),
-  question_id: z.string(),                       // REQUIRED
-  praise_text: z.string().max(1000).catch(""),   // keep ""
+  question_id: z.string(), // REQUIRED
+  praise_text: z.string().max(1000).catch(""), // keep ""
 });
 
 export const SubmissionPayloadSchema = z.object({
@@ -107,7 +108,6 @@ export const SubmissionPayloadSchema = z.object({
   comments: z.array(CommentItemSchema),
   praises: z.array(PraiseItemSchema),
 });
-
 
 export type SubmissionPayload = z.infer<typeof SubmissionPayloadSchema>;
 
@@ -150,10 +150,9 @@ export const CreatedTeamSchema = z.object({
   team_number: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  __v: z.number().int().optional(),   // <— make optional
+  __v: z.number().int().optional(), // <— make optional
   members: z.array(CreatedStudentSchema).min(1),
 });
-
 
 export const CreatedInstructorSchema = z.object({
   _id: z.string(),
@@ -164,8 +163,8 @@ export const CreatedInstructorSchema = z.object({
 
 export const CreatedClassSchema = z.object({
   _id: z.string(),
-  name: z.string(),        // e.g., "Spring_2025_Capstone Project"
-  section: z.string(),     // e.g., "CS_XXXX_..."
+  name: z.string(), // e.g., "Spring_2025_Capstone Project"
+  section: z.string(), // e.g., "CS_XXXX_..."
   term: z.string(),
   year: z.number().int(),
   instructor: CreatedInstructorSchema,
@@ -179,8 +178,8 @@ export const CreateClassResponseSchema = z.object({
 export type CreateClassResponse = z.infer<typeof CreateClassResponseSchema>;
 
 export type CreatedStudent = z.infer<typeof CreatedStudentSchema>;
-export type CreatedTeam    = z.infer<typeof CreatedTeamSchema>;
-export type CreatedClass   = z.infer<typeof CreatedClassSchema>;
+export type CreatedTeam = z.infer<typeof CreatedTeamSchema>;
+export type CreatedClass = z.infer<typeof CreatedClassSchema>;
 
 // ==== UPDATE TEAMS (POST /api/classes/update-teams) ====
 export const UpdateTeamsRequestSchema = z.object({
@@ -244,22 +243,34 @@ function toYMD(v: unknown): string {
 }
 
 // Client-normalized object used across the app
-export const AssignmentItemSchema = AssignmentServerFlexibleSchema.transform((a) => {
-  const id = a._id ?? a.assignment_id;                    // _id OR assignment_id
-  const name = a.title ?? a.name ?? a.assignment_name;    // title/name/assignment_name
-  const start = a.start_date ?? a.startDate;              // start_date/startDate
-  const end = a.due_date ?? a.end_date ?? a.dueDate ?? a.endDate; // due/end variants
-  return {
-    _id: String(id ?? ""),
-    name: String(name ?? ""),
-    start_date: toYMD(start),
-    end_date: toYMD(end),
-  };
-}).superRefine((v, ctx) => {
-  if (!v._id) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing _id" });
-  if (!v.name) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing name/title" });
-  if (!v.start_date) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing start_date" });
-  if (!v.end_date) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing end_date" });
+export const AssignmentItemSchema = AssignmentServerFlexibleSchema.transform(
+  (a) => {
+    const id = a._id ?? a.assignment_id; // _id OR assignment_id
+    const name = a.title ?? a.name ?? a.assignment_name; // title/name/assignment_name
+    const start = a.start_date ?? a.startDate; // start_date/startDate
+    const end = a.due_date ?? a.end_date ?? a.dueDate ?? a.endDate; // due/end variants
+    return {
+      _id: String(id ?? ""),
+      name: String(name ?? ""),
+      start_date: toYMD(start),
+      end_date: toYMD(end),
+    };
+  },
+).superRefine((v, ctx) => {
+  if (!v._id)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing _id" });
+  if (!v.name)
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Missing name/title",
+    });
+  if (!v.start_date)
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Missing start_date",
+    });
+  if (!v.end_date)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Missing end_date" });
 });
 
 export type AssignmentItem = z.infer<typeof AssignmentItemSchema>;
@@ -272,21 +283,27 @@ export const CreateAssignmentRequestSchema = z.object({
   assignment_start_date: Ymd,
   assignment_end_date: Ymd,
 });
-export type CreateAssignmentRequest = z.infer<typeof CreateAssignmentRequestSchema>;
+export type CreateAssignmentRequest = z.infer<
+  typeof CreateAssignmentRequestSchema
+>;
 
 export const CreateAssignmentResponseSchema = z.object({
   ok: z.literal(true),
   assignment: AssignmentItemSchema, // normalized
   message: z.string().optional(),
 });
-export type CreateAssignmentResponse = z.infer<typeof CreateAssignmentResponseSchema>;
+export type CreateAssignmentResponse = z.infer<
+  typeof CreateAssignmentResponseSchema
+>;
 
 // ----- List -----
 export const ListAssignmentsResponseSchema = z.object({
   ok: z.literal(true),
   assignments: z.array(AssignmentItemSchema),
 });
-export type ListAssignmentsResponse = z.infer<typeof ListAssignmentsResponseSchema>;
+export type ListAssignmentsResponse = z.infer<
+  typeof ListAssignmentsResponseSchema
+>;
 
 // ----- Update -----
 export const UpdateAssignmentRequestSchema = z.object({
@@ -297,14 +314,18 @@ export const UpdateAssignmentRequestSchema = z.object({
   assignment_start_date: Ymd,
   assignment_end_date: Ymd,
 });
-export type UpdateAssignmentRequest = z.infer<typeof UpdateAssignmentRequestSchema>;
+export type UpdateAssignmentRequest = z.infer<
+  typeof UpdateAssignmentRequestSchema
+>;
 
 export const UpdateAssignmentResponseSchema = z.object({
   ok: z.literal(true),
   assignment: AssignmentItemSchema,
   message: z.string().optional(),
 });
-export type UpdateAssignmentResponse = z.infer<typeof UpdateAssignmentResponseSchema>;
+export type UpdateAssignmentResponse = z.infer<
+  typeof UpdateAssignmentResponseSchema
+>;
 
 // ========= AUTH (register / login) =========
 
@@ -380,19 +401,17 @@ export const SummaryResponseItemSchema = z.object({
   response_id: z.string(),
   from_student_id: z.string(),
   to_student_id: z.string(),
-  question: SummaryQuestionInfoSchema,  // ✅ changed
+  question: SummaryQuestionInfoSchema, // ✅ changed
   rating: z.number().int(),
 });
-
 
 export const SummaryCommentItemSchema = z.object({
   comment_id: z.string(),
   from_student_id: z.string(),
   to_student_id: z.string(),
-  question: SummaryQuestionInfoSchema,  // ✅ changed
+  question: SummaryQuestionInfoSchema, // ✅ changed
   comment_text: z.string(),
 });
-
 
 export const SummaryPraiseItemSchema = z.object({
   praise_id: z.string(),
@@ -401,7 +420,6 @@ export const SummaryPraiseItemSchema = z.object({
   question: SummaryQuestionInfoSchema.nullable(), // ✅ can be null
   praise_text: z.string(),
 });
-
 
 export const SummarySubmissionSchema = z.object({
   submission_id: z.string(),
@@ -441,9 +459,6 @@ export const SummaryClassSchema = z.object({
   teams: z.array(SummaryTeamSchema),
   assignments: z.array(SummaryAssignmentSchema),
 });
-
-
-
 
 export const InstructorSummaryInstructorSchema = z.object({
   _id: z.string(),
@@ -506,6 +521,10 @@ export const InstructorSummaryLiteResponseSchema = z.object({
 export type InstructorSummaryLiteResponse = z.infer<
   typeof InstructorSummaryLiteResponseSchema
 >;
+export type LiteInstructor = z.infer<typeof LiteInstructorSchema>;
+export type LiteMember = z.infer<typeof LiteMemberSchema>;
+export type LiteTeam = z.infer<typeof LiteTeamSchema>;
+export type LiteClass = z.infer<typeof LiteClassSchema>;
 
 
 // ---- Responses: Group Assignments (GET /api/responses/group-assignments) ----
@@ -553,7 +572,6 @@ export const GroupAssignmentsResponseSchema = z.object({
 export type GroupAssignmentsResponse = z.infer<
   typeof GroupAssignmentsResponseSchema
 >;
-
 
 // ---- Responses: Assignment Detail (GET /api/responses/assignment-detail) ----
 
@@ -626,3 +644,9 @@ export const AssignmentDetailResponseSchema = z.object({
 export type AssignmentDetailResponse = z.infer<
   typeof AssignmentDetailResponseSchema
 >;
+
+export type AssignmentDetailTeam = z.infer<typeof AssignmentDetailTeamSchema>;
+export type AssignmentDetailSubmission = z.infer<
+  typeof AssignmentDetailSubmissionSchema
+>;
+export type AssignmentTeamMember = z.infer<typeof GroupAssignmentsMemberSchema>;

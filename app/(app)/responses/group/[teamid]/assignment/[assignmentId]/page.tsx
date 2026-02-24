@@ -5,24 +5,25 @@ import { useParams, useRouter } from "next/navigation";
 import Spinner from "@/components/Spinner";
 import { useAssignmentDetail } from "@/app/lib/queries";
 import SubmissionCard from "@/components/responses/SubmissionCard";
+import { AssignmentDetailSubmission, AssignmentTeamMember } from "@/app/lib/zodSchemas";
 // helper: group responses by recipient student
-function groupBy<T>(arr: T[], keyFn: (x: T) => string) {
-  const m = new Map<string, T[]>();
-  for (const x of arr) {
-    const k = keyFn(x);
-    const cur = m.get(k) ?? [];
-    cur.push(x);
-    m.set(k, cur);
-  }
-  return m;
-}
+// function groupBy<T>(arr: T[], keyFn: (x: T) => string) {
+//   const m = new Map<string, T[]>();
+//   for (const x of arr) {
+//     const k = keyFn(x);
+//     const cur = m.get(k) ?? [];
+//     cur.push(x);
+//     m.set(k, cur);
+//   }
+//   return m;
+// }
 
-function formatDateTime(v: unknown) {
-  if (!v) return "—";
-  const d = new Date(String(v));
-  if (Number.isNaN(d.getTime())) return String(v);
-  return d.toLocaleString();
-}
+// function formatDateTime(v: unknown) {
+//   if (!v) return "—";
+//   const d = new Date(String(v));
+//   if (Number.isNaN(d.getTime())) return String(v);
+//   return d.toLocaleString();
+// }
 
 function formatDate(v: unknown) {
   if (!v) return "—";
@@ -36,15 +37,15 @@ function clampPct(n: number) {
   return Math.max(0, Math.min(100, n));
 }
 
-function questionLabel(x: any) {
-  return (
-    x?.question?.title ??
-    x?.question?.qid ??
-    x?.question?.question_id ??
-    x?.question_id ??
-    "Unknown question"
-  );
-}
+// function questionLabel(x: any) {
+//   return (
+//     x?.question?.title ??
+//     x?.question?.qid ??
+//     x?.question?.question_id ??
+//     x?.question_id ??
+//     "Unknown question"
+//   );
+// }
 
 export default function AssignmentResponsesPage() {
   const router = useRouter();
@@ -53,7 +54,10 @@ export default function AssignmentResponsesPage() {
   const teamId = params?.teamId ?? null;
   const assignmentId = params?.assignmentId ?? null;
 
-  const { data, isLoading, error, refetch } = useAssignmentDetail(assignmentId, teamId);
+  const { data, isLoading, error, refetch } = useAssignmentDetail(
+    assignmentId,
+    teamId,
+  );
 
   const selected = useMemo(() => {
     if (!data?.ok) return null;
@@ -66,7 +70,8 @@ export default function AssignmentResponsesPage() {
 
   const expectedCount = selected?.team?.members?.length ?? 0;
   const submittedCount = selected?.submissions?.length ?? 0;
-  const pct = expectedCount > 0 ? clampPct((submittedCount / expectedCount) * 100) : 0;
+  const pct =
+    expectedCount > 0 ? clampPct((submittedCount / expectedCount) * 100) : 0;
 
   // expand/collapse per submission_id
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -109,7 +114,8 @@ export default function AssignmentResponsesPage() {
       <div className="mx-auto max-w-6xl p-6">
         <div className="bg-white rounded-2xl border p-6">
           <p className="text-sm text-gray-700">
-            Couldn&apos;t find this assignment/group. Try going back and re-opening it.
+            Couldn&apos;t find this assignment/group. Try going back and
+            re-opening it.
           </p>
           <button
             onClick={() => router.back()}
@@ -124,9 +130,9 @@ export default function AssignmentResponsesPage() {
 
   const { team, assignment, submissions } = selected;
   const members = team.members ?? [];
-  const memberById = new Map(members.map((m: any) => [m.user_id, m]));
-// auto-expand if only 1 submission exists
-const autoOpenSingle = submissions.length === 1;
+  const memberById = new Map(members.map((m: AssignmentTeamMember) => [m.user_id, m]));
+  // auto-expand if only 1 submission exists
+  const autoOpenSingle = submissions.length === 1;
   return (
     <div className="mx-auto max-w-6xl px-6 py-8 space-y-6">
       {/* Back */}
@@ -146,7 +152,8 @@ const autoOpenSingle = submissions.length === 1;
               {assignment.title ?? "Untitled"}
             </div>
             <div className="text-sm text-gray-600">
-              {formatDate(assignment.start_date)} – {formatDate(assignment.due_date)}
+              {formatDate(assignment.start_date)} –{" "}
+              {formatDate(assignment.due_date)}
               <span className="mx-2 text-gray-300">•</span>
               <span className="font-medium">Group:</span> {team.team_number}
             </div>
@@ -174,8 +181,10 @@ const autoOpenSingle = submissions.length === 1;
             Members <span className="text-gray-400">({members.length})</span>
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {members.map((m: any) => {
-              const name = `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "Student";
+            {members.map((m: AssignmentTeamMember) => {
+              const name =
+                `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() ||
+                "Student";
               return (
                 <span
                   key={m.user_id}
@@ -195,19 +204,24 @@ const autoOpenSingle = submissions.length === 1;
       <div className="bg-white rounded-2xl border shadow-sm p-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Student submissions</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Student submissions
+            </h2>
             <p className="text-sm text-gray-600">
-              Expand a student card to see ratings, comments, and praise per teammate.
+              Expand a student card to see ratings, comments, and praise per
+              teammate.
             </p>
           </div>
-          <div className="text-sm text-gray-500">{submissions.length} submission(s)</div>
+          <div className="text-sm text-gray-500">
+            {submissions.length} submission(s)
+          </div>
         </div>
 
         <div className="mt-6 space-y-4">
-          {submissions.map((sub: any) => {
+          {submissions.map((sub: AssignmentDetailSubmission) => {
             // const from = memberById.get(sub.from_student_id);
             // const fromName =
-              // from ? `${from.first_name ?? ""} ${from.last_name ?? ""}`.trim() : sub.from_student_id;
+            // from ? `${from.first_name ?? ""} ${from.last_name ?? ""}`.trim() : sub.from_student_id;
             const isOpen = open[sub.submission_id] ?? autoOpenSingle;
 
             // const ratingsByTo = groupBy(sub.responses ?? [], (r: any) => r.to_student_id);
@@ -359,19 +373,21 @@ const autoOpenSingle = submissions.length === 1;
               //   )}
               // </div>
               <SubmissionCard
-        key={sub.submission_id}
-        submission={sub}
-        members={members}
-        memberById={memberById}
-        expectedCount={expectedCount}
-        isOpen={isOpen}
-        onToggle={() =>
-          setOpen((prev) => ({
-            ...prev,
-            [sub.submission_id]: !(prev[sub.submission_id] ?? autoOpenSingle),
-          }))
-        }
-      />
+                key={sub.submission_id}
+                submission={sub}
+                members={members}
+                memberById={memberById}
+                expectedCount={expectedCount}
+                isOpen={isOpen}
+                onToggle={() =>
+                  setOpen((prev) => ({
+                    ...prev,
+                    [sub.submission_id]: !(
+                      prev[sub.submission_id] ?? autoOpenSingle
+                    ),
+                  }))
+                }
+              />
             );
           })}
 

@@ -10,7 +10,7 @@ import {
 } from "@/app/lib/zodSchemas";
 import ProgressBar from "./ProgressBar";
 import ScaleQuestion from "./ScaleQuestion";
-import TextQuestion from "./TextQuestion";
+// import TextQuestion from "./TextQuestion";
 import PraiseQuestion from "./PraiseQuestion";
 import LookupForm from "./LookupForm";
 
@@ -59,10 +59,10 @@ export default function QuestionPage() {
     if (isError) setStep(0);
   }, [isError]);
 
-  const onLookupNext = () => {
-    setStarted(true);
-    setStep(1);
-  };
+  // const onLookupNext = () => {
+  //   setStarted(true);
+  //   setStep(1);
+  // };
 
   const currentQuestion: Question | null =
     step >= 1 && questions.length > 0 ? questions[step - 1] : null;
@@ -81,8 +81,8 @@ export default function QuestionPage() {
     setScaleRatings((p) => ({ ...p, [`${qid}-${uid}`]: value }));
   const onScaleComment = (qid: string, uid: string, text: string) =>
     setScaleComments((p) => ({ ...p, [`${qid}-${uid}`]: text }));
-  const onTextChange = (qid: string, uid: string, text: string) =>
-    setTextPerTeammate((p) => ({ ...p, [`${qid}-${uid}`]: text }));
+  // const onTextChange = (qid: string, uid: string, text: string) =>
+  //   setTextPerTeammate((p) => ({ ...p, [`${qid}-${uid}`]: text }));
   const onPraiseChange = (qid: string, uid: string, text: string) =>
     setPraiseTexts((p) => ({ ...p, [`${qid}-${uid}`]: text }));
 

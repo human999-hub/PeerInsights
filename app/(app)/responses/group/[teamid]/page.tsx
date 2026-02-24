@@ -102,9 +102,9 @@ export default function GroupAssignmentsPage() {
   const expectedCount = team.members?.length ?? 0;
 
   // Aggregate progress across assignments (optional but nice)
-  const totalReceived = assignments.reduce((sum, a) => sum + (a.submissionsCount ?? 0), 0);
-  const totalExpected = expectedCount * Math.max(assignments.length, 1);
-  const overallPct = totalExpected > 0 ? clampPct((totalReceived / totalExpected) * 100) : 0;
+  // const totalReceived = assignments.reduce((sum, a) => sum + (a.submissionsCount ?? 0), 0);
+  // const totalExpected = expectedCount * Math.max(assignments.length, 1);
+  // const overallPct = totalExpected > 0 ? clampPct((totalReceived / totalExpected) * 100) : 0;
 return (
     <div className="mx-auto max-w-6xl px-6 py-8 space-y-6">
       {/* Back */}

@@ -1,6 +1,5 @@
 "use client";
 
-
 import * as Papa from "papaparse";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useClassDetails, useUpdateTeams } from "@/app/lib/queries";
@@ -17,7 +16,7 @@ type ParsedSummary = {
 
 function pickKey(
   obj: Record<string, unknown>,
-  candidates: string[]
+  candidates: string[],
 ): string | undefined {
   const keys = Object.keys(obj);
   const lower = keys.map((k) => k.toLowerCase());
@@ -40,7 +39,7 @@ function arrToSet(a: string[]) {
 export default function EditClassPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const classId = params?.id ?? null;
+  // const classId = params?.id ?? null;
 
   const search = useSearchParams();
   const instructorEmail = search.get("instructor_email");
@@ -62,7 +61,6 @@ export default function EditClassPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
 
   // ---------- CSV upload ----------
   function onChooseFile() {
@@ -86,7 +84,7 @@ export default function EditClassPage() {
           Object.keys(sample).find(
             (k) =>
               k.toLowerCase().includes("name") &&
-              !k.toLowerCase().includes("group")
+              !k.toLowerCase().includes("group"),
           );
 
         const classKey = pickKey(sample, [
@@ -124,7 +122,9 @@ export default function EditClassPage() {
         const groups: Group[] = Array.from(groupMap.entries())
           .map(([groupName, members]) => ({ groupName, members }))
           .sort((a, b) =>
-            a.groupName.localeCompare(b.groupName, undefined, { numeric: true })
+            a.groupName.localeCompare(b.groupName, undefined, {
+              numeric: true,
+            }),
           );
 
         setCsvSummary({
@@ -150,7 +150,7 @@ export default function EditClassPage() {
     const existingMap = new Map<string, string[]>();
     for (const t of cls.teams) {
       const members = t.members.map((m) =>
-        normalizeName(m.first_name, m.last_name)
+        normalizeName(m.first_name, m.last_name),
       );
       existingMap.set(t.team_number, members);
     }
@@ -237,8 +237,16 @@ export default function EditClassPage() {
       // Optionally refresh data or navigate back:
       // router.refresh();
       router.push(`/classes`);
-    } catch (e: any) {
-      setErrorMsg(e?.message || "Failed to update teams.");
+    } catch (e) {
+      // catch (e: any) {
+      //   setErrorMsg(e?.message || "Failed to update teams.");
+      // }
+      // We check if 'e' is actually an Error object
+      if (e instanceof Error) {
+        setErrorMsg(e.message);
+      } else {
+        setErrorMsg("Failed to update teams.");
+      }
     }
   }
 

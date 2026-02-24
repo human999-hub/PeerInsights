@@ -31,7 +31,7 @@ export default function AssignmentsPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const params = useParams<{ id: string }>();
-  const classId = params?.id ?? null;
+  // const classId = params?.id ?? null;
 
   const search = useSearchParams();
   const instructorEmail = search.get("instructor_email");
@@ -136,10 +136,19 @@ export default function AssignmentsPage() {
       setShowCreate(false);
       await refetchAssignments();
       setTimeout(() => setCreateMsg(null), 3000);
-    } catch (e: any) {
-      setErrorMsg(e?.message || "Failed to create assignment");
+    } catch (e) {
+      // We check if 'e' is actually an Error object
+      if (e instanceof Error) {
+        setErrorMsg(e.message);
+      } else {
+        setErrorMsg("An unexpected error occurred");
+      }
       setTimeout(() => setErrorMsg(null), 5000);
     }
+    //  catch (e: any) {
+    //   setErrorMsg(e?.message || "Failed to create assignment");
+    //   setTimeout(() => setErrorMsg(null), 5000);
+    // }
   }
 
   function startEdit(a: Assignment) {
@@ -185,8 +194,16 @@ export default function AssignmentsPage() {
       });
       setEditingId(null);
       await refetchAssignments();
-    } catch (e: any) {
-      setErrorMsg(e?.message || "Failed to update assignment");
+    } catch (e) {
+      // catch (e: any) {
+      //   setErrorMsg(e?.message || "Failed to update assignment");
+      // }
+      // We check if 'e' is actually an Error object
+      if (e instanceof Error) {
+        setErrorMsg(e.message);
+      } else {
+        setErrorMsg("Failed to update assignment");
+      }
     }
   }
 
@@ -200,8 +217,8 @@ export default function AssignmentsPage() {
               Assignments
             </h1>
             <p className="text-rose-700 text-sm">
-              Missing required query params:{" "}
-              <code>instructor_email</code> and <code>section</code>.
+              Missing required query params: <code>instructor_email</code> and{" "}
+              <code>section</code>.
             </p>
             <button
               className="button-secondary mt-4"
@@ -473,10 +490,7 @@ export default function AssignmentsPage() {
 
           {/* Footer actions */}
           <div className="flex items-center gap-3 mt-6">
-            <button
-              className="button-secondary"
-              onClick={() => router.back()}
-            >
+            <button className="button-secondary" onClick={() => router.back()}>
               Back
             </button>
           </div>
