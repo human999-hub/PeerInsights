@@ -1,5 +1,6 @@
 "use client";
 
+import { AssignmentDetailCommentItem, AssignmentDetailPraiseItem, AssignmentDetailResponseItem, AssignmentDetailSubmission } from "@/app/lib/zodSchemas";
 import { useMemo } from "react";
 
 // helper: group responses by recipient student
@@ -21,7 +22,7 @@ function formatDateTime(v: unknown) {
   return d.toLocaleString();
 }
 
-function questionLabel(x: any) {
+function questionLabel(x: AssignmentDetailResponseItem | AssignmentDetailCommentItem | AssignmentDetailPraiseItem) {
   return (
     x?.question?.title ??
     x?.question?.qid ??
@@ -48,7 +49,7 @@ type Member = {
 };
 
 type SubmissionCardProps = {
-  submission: any;
+  submission: AssignmentDetailSubmission; // AssignmentDetailSubmission, but we want to be flexible for now
   members: Member[];
   memberById: Map<string, Member>;
   expectedCount: number;
@@ -72,9 +73,9 @@ export default function SubmissionCard({
   // Group items by recipient (teammate)
   const { ratingsByTo, commentsByTo, praisesByTo } = useMemo(() => {
     return {
-      ratingsByTo: groupBy(sub.responses ?? [], (r: any) => r.to_student_id),
-      commentsByTo: groupBy(sub.comments ?? [], (c: any) => c.to_student_id),
-      praisesByTo: groupBy(sub.praises ?? [], (p: any) => p.to_student_id),
+      ratingsByTo: groupBy(sub.responses ?? [], (r: AssignmentDetailResponseItem) => r.to_student_id),
+      commentsByTo: groupBy(sub.comments ?? [], (c: AssignmentDetailCommentItem) => c.to_student_id),
+      praisesByTo: groupBy(sub.praises ?? [], (p: AssignmentDetailPraiseItem) => p.to_student_id),
     };
   }, [sub]);
 
@@ -184,7 +185,7 @@ export default function SubmissionCard({
                             Ratings
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                            {r.map((x: any) => (
+                            {r.map((x: AssignmentDetailResponseItem) => (
                               <div
                                 key={x.response_id}
                                 className="flex items-center justify-between gap-3 rounded-xl bg-white border px-3 py-2"
@@ -215,7 +216,7 @@ export default function SubmissionCard({
                             Comments
                           </div>
                           <div className="space-y-2">
-                            {c.map((x: any) => (
+                            {c.map((x: AssignmentDetailCommentItem) => (
                               <div key={x.comment_id} className="bg-gray-100 rounded-lg p-3">
                                 <div className="text-xs text-gray-500 mb-1">
                                   {questionLabel(x)}
@@ -236,7 +237,7 @@ export default function SubmissionCard({
                             Praise
                           </div>
                           <div className="space-y-2">
-                            {p.map((x: any) => (
+                            {p.map((x: AssignmentDetailPraiseItem) => (
                               <div
                                 key={x.praise_id}
                                 className="bg-green-50 border-l-4 border-green-400 rounded-lg p-3"

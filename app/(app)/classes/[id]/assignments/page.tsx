@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   useClassDetails,
   useAssignments,
@@ -30,7 +30,7 @@ export default function AssignmentsPage() {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  const params = useParams<{ id: string }>();
+  // const params = useParams<{ id: string }>();
   // const classId = params?.id ?? null;
 
   const search = useSearchParams();

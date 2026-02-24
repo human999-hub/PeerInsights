@@ -1,6 +1,6 @@
 // peerinsights/app/responses/types.ts
 
-export type Role = "instructor" | "student" | string;
+export type Role = "instructor" | "student" | "ta" | string;
 
 export type Instructor = {
   _id: string;
@@ -12,10 +12,10 @@ export type Instructor = {
 
 export type Member = {
   user_id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: Role;
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  role?: Role | null;
 };
 
 export type Team = {

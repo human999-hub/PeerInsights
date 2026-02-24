@@ -10,6 +10,7 @@ import GroupCard from "@/components/responses/GroupCard";
 
 import { useInstructorSummaryLite } from "@/app/lib/queries";
 import { GroupCardModel } from "@/app/(app)/responses/types";
+import { LiteClass, LiteTeam } from "@/app/lib/zodSchemas";
 
 export default function ResponsesPage() {
   const router = useRouter();
@@ -38,14 +39,14 @@ export default function ResponsesPage() {
     if (!data?.classes) return [];
 
     const out: GroupCardModel[] = [];
-    data.classes.forEach((cls: any) => {
+    data.classes.forEach((cls: LiteClass) => {
       const classId = cls.class_id;
       const className = cls.name ?? "";
       const section = cls.section ?? "";
       const term = cls.term ?? "";
       const year = cls.year ?? 0;
 
-      (cls.teams ?? []).forEach((team: any) => {
+      (cls.teams ?? []).forEach((team: LiteTeam) => {
         out.push({
           classId,
           className,
@@ -65,7 +66,7 @@ export default function ResponsesPage() {
   // Filter options
   const courseOptions = useMemo(() => {
     if (!data?.classes) return [];
-    return data.classes.map((cls: any) => ({
+    return data.classes.map((cls: LiteClass) => ({
       value: cls.class_id,
       label: `${cls.name ?? "Untitled course"} (${cls.term ?? "Unknown term"} ${cls.year ?? ""})`.trim(),
       section: cls.section ?? "",
@@ -82,7 +83,7 @@ export default function ResponsesPage() {
 
   const sectionOptions = useMemo(() => {
   if (!data?.classes || selectedCourseId === "ALL") return [];
-  const cls = data.classes.find((c: any) => c.class_id === selectedCourseId);
+  const cls = data.classes.find((c: LiteClass) => c.class_id === selectedCourseId);
   if (!cls) return [];
   const sec = cls.section ?? "";
   if (!sec) return [];

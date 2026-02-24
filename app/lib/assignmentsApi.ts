@@ -11,6 +11,7 @@ import {
   UpdateAssignmentResponse,
   UpdateAssignmentRequestSchema,
   UpdateAssignmentResponseSchema,
+  AssignmentItemSchema,
 } from "./zodSchemas";
 
 const BASE = "";
@@ -83,13 +84,16 @@ export async function fetchAssignmentsByClass(
   const json = await res.json();
 
   // Normalize backend fields -> frontend fields
-  const normalized = (Array.isArray(json.assignments) ? json.assignments : []).map(
-    (a: any) => ({
-      _id: a.assignment_id,
-      name: a.assignment_name,
-      start_date: a.start_date,
-      end_date: a.end_date,
-    })
+  // const normalized = (Array.isArray(json.assignments) ? json.assignments : []).map(
+  //   (a: AssignmentItem) => ({
+  //     _id: a.assignment_id,
+  //     name: a.assignment_name,
+  //     start_date: a.start_date,
+  //     end_date: a.end_date,
+  //   })
+  // );
+    const normalized = (Array.isArray(json.assignments) ? json.assignments : []).map((a: unknown) =>
+    AssignmentItemSchema.parse(a)
   );
 
   // Now validate using your existing zod schema (keeps it safe)

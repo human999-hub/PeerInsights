@@ -1,5 +1,6 @@
 // peerinsights/app/lib/zodSchemas.ts
 import { z } from "zod";
+
 // Evaluation Form Schemas
 /** -------- fetch form (POST /api/form) ---------- */
 export const FormRequestSchema = z.object({
@@ -401,7 +402,7 @@ export const SummaryResponseItemSchema = z.object({
   response_id: z.string(),
   from_student_id: z.string(),
   to_student_id: z.string(),
-  question: SummaryQuestionInfoSchema, // ✅ changed
+  question: SummaryQuestionInfoSchema, 
   rating: z.number().int(),
 });
 
@@ -409,7 +410,7 @@ export const SummaryCommentItemSchema = z.object({
   comment_id: z.string(),
   from_student_id: z.string(),
   to_student_id: z.string(),
-  question: SummaryQuestionInfoSchema, // ✅ changed
+  question: SummaryQuestionInfoSchema, 
   comment_text: z.string(),
 });
 
@@ -417,7 +418,7 @@ export const SummaryPraiseItemSchema = z.object({
   praise_id: z.string(),
   from_student_id: z.string(),
   to_student_id: z.string(),
-  question: SummaryQuestionInfoSchema.nullable(), // ✅ can be null
+  question: SummaryQuestionInfoSchema.nullable(),
   praise_text: z.string(),
 });
 
@@ -650,3 +651,13 @@ export type AssignmentDetailSubmission = z.infer<
   typeof AssignmentDetailSubmissionSchema
 >;
 export type AssignmentTeamMember = z.infer<typeof GroupAssignmentsMemberSchema>;
+
+export type AssignmentDetailResponseItem = z.infer<
+  typeof AssignmentDetailResponseItemSchema
+>;
+export type AssignmentDetailCommentItem = z.infer<
+  typeof AssignmentDetailCommentItemSchema
+>;  
+export type AssignmentDetailPraiseItem = z.infer<
+  typeof AssignmentDetailPraiseItemSchema
+>;

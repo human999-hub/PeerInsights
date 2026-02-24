@@ -1,7 +1,7 @@
 "use client";
 
 import * as Papa from "papaparse";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useClassDetails, useUpdateTeams } from "@/app/lib/queries";
 import { useMemo, useRef, useState } from "react";
 
@@ -38,7 +38,7 @@ function arrToSet(a: string[]) {
 // ---------- page ----------
 export default function EditClassPage() {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
+  // const params = useParams<{ id: string }>();
   // const classId = params?.id ?? null;
 
   const search = useSearchParams();
