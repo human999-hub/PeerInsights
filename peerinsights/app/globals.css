@@ -1,0 +1,108 @@
+/* app/globals.css */
+@import "tailwindcss";
+
+@theme {
+  /* Map next/font variable to a Tailwind token */
+  --font-figtree: var(--font-figtree-var);
+  /* make Figtree the default sans if you want */
+  --font-sans: var(--font-figtree-var);
+
+  /* (optional) keep mono mapping to Geist_Mono */
+  --font-mono: var(--font-geist-mono);
+
+  /* your colors */
+  --color-primary: #861f41 ;
+  --color-secondary: #FFA25B ;
+  --color-subtle-maroon: #d09fa8 ;
+  --color-primary-hover: #731a37 ;
+  --color-light-maroon: #f0dfe1 ;
+  
+/* rgba(173, 98, 115) */
+}
+
+@utility glass-card-orange {
+  @apply rounded-2xl bg-secondary/60
+         shadow-[0_4px_30px_rgba(0,0,0,0.1)]
+         backdrop-blur-[5px]
+         border border-secondary/80;
+}
+/* background: rgba(173, 98, 115, 0.74);
+border-radius: 16px;
+box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+backdrop-filter: blur(5px);
+-webkit-backdrop-filter: blur(5px);
+border: 1px solid rgba(173, 98, 115, 0.3); */
+
+@utility glass-card-maroon{
+    @apply rounded-2xl bg-subtle-maroon/74
+             shadow-[0_4px_30px_rgba(0,0,0,0.1)]
+         backdrop-blur-[5px]
+         border border-subtle-maroon/30;
+}
+
+@utility glass-card-light-maroon{
+    @apply rounded-2xl bg-light-maroon/74
+             shadow-[0_4px_30px_rgba(0,0,0,0.1)]
+         backdrop-blur-[5px]
+         border border-light-maroon/30;
+}
+
+@utility button-primary {
+  @apply inline-block
+   px-5 
+   py-2 
+   bg-primary 
+   text-white 
+   rounded-3xl 
+   hover:bg-primary-hover 
+   transition;
+}
+
+@utility button-secondary {
+  @apply inline-block
+   px-5 
+   py-2 
+   bg-transparent 
+   text-black 
+   rounded-3xl
+   cursor-pointer
+   border border-black/30
+   hover:bg-black/5 
+   transition;
+}
+/* Softer card surface on pink page bg */
+@utility surface-card {
+  @apply rounded-2xl bg-white/85
+         border border-subtle-maroon/40
+         shadow-[0_8px_30px_rgba(134,31,65,0.08)];
+}
+
+/* Inputs that feel crisp, with brand focus */
+@utility input-field {
+  @apply w-full rounded-xl
+         bg-white
+         focus:bg-white/100
+         border border-subtle-maroon/40
+         px-3 py-2
+         placeholder:text-subtle-maroon/70
+         outline-none ring-0
+         focus:border-primary focus:ring-2 focus:ring-primary/25;
+}
+
+/* CSV preview panel (sub-surface) */
+@utility info-panel {
+  @apply rounded-xl bg-white/80
+         border border-subtle-maroon/35 p-4;
+}
+
+/* Small accent chip for group names */
+@utility group-chip {
+  @apply inline-flex items-center rounded-full
+         bg-secondary/30 text-primary
+         px-2 py-0.5 text-xs font-medium;
+}
+
+/* Optional dotted divider */
+@utility dotted-divider {
+  @apply border-t border-dotted border-subtle-maroon/50;
+}
