@@ -747,8 +747,9 @@
 // }
 
 // app/api/classes/update-teams/route.ts
+// app/api/classes/update-teams/route.ts
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 
 import Class from "@/models/Class";
@@ -765,111 +766,150 @@ import "@/models/Response";
 import "@/models/Comment";
 import "@/models/Praise";
 
+type UserRole = "student" | "instructor" | "ta";
+
+type IncomingGroup = {
+  groupName: string; // you are using string team_number like "Group_1"
+  members: string[];
+};
+
+type UpdateTeamsBody = {
+  instructor_email?: string;
+  // these may exist in payload but we won't destructure them (avoids unused-vars warning)
+  instructor_first_name?: string;
+  instructor_last_name?: string;
+  courseName?: string;
+  term?: string;
+  year?: string | number;
+  class?: string; // section
+  groups?: IncomingGroup[];
+};
+
+type PopulatedStudent = {
+  _id: Types.ObjectId;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  role: UserRole;
+};
+
+type TeamMemberPopulated = {
+  student_id: PopulatedStudent;
+};
+
+type AssignmentIdOnly = { _id: Types.ObjectId };
+
+type SubmissionIdOnly = { _id: Types.ObjectId };
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return "Unknown error";
+}
+
 /**
  * Helper: get active assignments for a class (start <= now <= due)
  */
 async function getActiveAssignments(
-  classId: mongoose.Types.ObjectId,
-  session: mongoose.ClientSession
-) {
+  classId: Types.ObjectId,
+  session: mongoose.ClientSession,
+): Promise<AssignmentIdOnly[]> {
   const now = new Date();
-  return Assignment.find({
+  const docs = await Assignment.find({
     class_id: classId,
     start_date: { $lte: now },
     due_date: { $gte: now },
-  }).session(session);
+  })
+    .select({ _id: 1 })
+    .session(session)
+    .lean();
+
+  return docs as unknown as AssignmentIdOnly[];
 }
 
 /**
- * Helper: fetch submissions _ids for a set of assignments
+ * Helper: fetch submission _ids for a set of assignments
  */
 async function getSubmissionIdsForAssignments(
-  assignmentIds: mongoose.Types.ObjectId[],
-  session: mongoose.ClientSession
-) {
-  const subs = await mongoose
-    .model("Submission")
-    .find({ assignment_id: { $in: assignmentIds } }, { _id: 1 })
-    .session(session);
+  assignmentIds: Types.ObjectId[],
+  session: mongoose.ClientSession,
+): Promise<Types.ObjectId[]> {
+  const SubmissionModel = mongoose.model("Submission");
 
-  return subs.map((s) => s._id as mongoose.Types.ObjectId);
+  const subs = (await SubmissionModel.find(
+    { assignment_id: { $in: assignmentIds } },
+    { _id: 1 },
+  )
+    .session(session)
+    .lean()) as unknown as SubmissionIdOnly[];
+
+  return subs.map((s) => s._id);
 }
 
 export async function POST(req: Request) {
   await connectDB();
-  console.log("Registered models:", Object.keys(mongoose.models));
 
   const session = await mongoose.startSession();
 
   try {
-    const body = await req.json();
-    const {
-      instructor_email, // really: "staff" email (instructor or TA)
-      instructor_first_name, // still accepted but not used now
-      instructor_last_name, // still accepted but not used now
-      courseName,
-      term,
-      year,
-      class: section,
-      groups = [],
-    } = body;
+    const body = (await req.json()) as UpdateTeamsBody;
+
+    const instructor_email = body.instructor_email;
+    const courseName = body.courseName;
+    const term = body.term;
+    const year = body.year;
+    const section = body.class;
+    const groups: IncomingGroup[] = Array.isArray(body.groups)
+      ? body.groups
+      : [];
 
     // 1) Validate minimal input
     if (!instructor_email || !courseName || !term || !year || !section) {
       return NextResponse.json(
         { ok: false, error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     await session.withTransaction(async () => {
       // 2) Find the staff user (must already exist & be instructor/ta)
       const staff = await User.findOne({ email: instructor_email }).session(
-        session
+        session,
       );
 
       if (!staff) {
         throw new Error(
-          "User not found. Please register as instructor/TA before updating teams."
+          "User not found. Please register as instructor/TA before updating teams.",
         );
       }
 
-      // Only allow instructor or ta to manage teams
       if (staff.role !== "instructor" && staff.role !== "ta") {
         throw new Error(
-          "Only instructors or TAs are allowed to update class teams."
+          "Only instructors or TAs are allowed to update class teams.",
         );
       }
 
-      // ⚠️ IMPORTANT:
-      // We do NOT change staff.role here.
-      // No more: "if (role !== 'instructor') role = 'instructor'".
-      // TA stays TA, instructor stays instructor.
-
       // 3) Find class (by course + term + year + section)
-      //    We DON'T tie it strictly to staff._id so a TA can also manage it.
       const className = `${term}_${year}_${courseName}`;
-      const klass = await Class.findOne({
-        name: className,
-        section,
-      }).session(session);
+      const klass = await Class.findOne({ name: className, section }).session(
+        session,
+      );
 
       if (!klass) {
         throw new Error(
-          "Class not found for this course/term/section. Please create it first."
+          "Class not found for this course/term/section. Please create it first.",
         );
       }
 
       // 4) Load existing teams and members for this class
       const existingTeams = await Team.find({ class_id: klass._id }).session(
-        session
+        session,
       );
 
-      const existingByName = new Map(
-        existingTeams.map((t) => [t.team_number, t])
+      const existingByName = new Map<string, (typeof existingTeams)[number]>(
+        existingTeams.map((t) => [String(t.team_number), t]),
       );
 
-      const incomingGroupNames: string[] = groups.map((g: any) => g.groupName);
+      const incomingGroupNames: string[] = groups.map((g) => g.groupName);
 
       // Build membership map: teamId -> Set<studentId>
       const teamMemberDocs = await TeamMember.find({
@@ -883,32 +923,26 @@ export async function POST(req: Request) {
         membersByTeam.get(key)!.add(String(tm.student_id));
       }
 
-      // Track students impacted (removed from a team or moved)
       const changedStudentIds = new Set<string>();
 
       // 5) Delete teams that are missing in incoming payload
       const teamsToRemove = existingTeams.filter(
-        (t) => !incomingGroupNames.includes(t.team_number)
+        (t) => !incomingGroupNames.includes(String(t.team_number)),
       );
 
       for (const team of teamsToRemove) {
         const teamIdStr = String(team._id);
 
-        // Collect members for this team as "changed"
         const memberIds = membersByTeam.get(teamIdStr) || new Set<string>();
         memberIds.forEach((id) => changedStudentIds.add(id));
 
-        // Delete team members
         await TeamMember.deleteMany({ team_id: team._id }).session(session);
 
-        // Remove assignment links for active assignments
         const activeAssignments = await getActiveAssignments(
           klass._id,
-          session
+          session,
         );
-        const activeAssignmentIds = activeAssignments.map(
-          (a) => a._id as mongoose.Types.ObjectId
-        );
+        const activeAssignmentIds = activeAssignments.map((a) => a._id);
 
         if (activeAssignmentIds.length) {
           await AssignmentTeam.deleteMany({
@@ -917,7 +951,6 @@ export async function POST(req: Request) {
           }).session(session);
         }
 
-        // Finally delete the team
         await Team.deleteOne({ _id: team._id }).session(session);
       }
 
@@ -928,26 +961,19 @@ export async function POST(req: Request) {
           ? group.members
           : [];
 
-        // Upsert team
         let team = existingByName.get(groupName);
         if (!team) {
-          team = await Team.create(
-            [
-              {
-                class_id: klass._id,
-                team_number: groupName,
-              },
-            ],
-            { session }
-          ).then((d) => d[0]);
+          const created = await Team.create(
+            [{ class_id: klass._id, team_number: groupName }],
+            { session },
+          );
+          team = created[0];
         }
 
-        // Existing member ids for this team
         const teamKey = String(team._id);
         const existingMemberIds =
           membersByTeam.get(teamKey) || new Set<string>();
 
-        // Build new member ids
         const newMemberIds: string[] = [];
 
         for (const memberName of members) {
@@ -958,50 +984,33 @@ export async function POST(req: Request) {
 
           let student = await User.findOne({ email }).session(session);
           if (!student) {
-            student = await User.create(
-              [
-                {
-                  email,
-                  first_name,
-                  last_name,
-                  role: "student",
-                },
-              ],
-              { session }
-            ).then((d) => d[0]);
+            const created = await User.create(
+              [{ email, first_name, last_name, role: "student" }],
+              { session },
+            );
+            student = created[0];
           } else if (student.role !== "student") {
-            // keep it simple: if they exist but not as student,
-            // we just force them to student here (dev data pattern).
             student.role = "student";
             await student.save({ session });
           }
 
           newMemberIds.push(String(student._id));
 
-          // Add missing membership
           if (!existingMemberIds.has(String(student._id))) {
             await TeamMember.create(
-              [
-                {
-                  team_id: team._id,
-                  student_id: student._id,
-                },
-              ],
-              { session }
+              [{ team_id: team._id, student_id: student._id }],
+              { session },
             );
-
-            // This member has moved into this team (or is new)
-            // Mark them as "changed" so we wipe in-progress review data for active assignments
             changedStudentIds.add(String(student._id));
           }
         }
 
-        // Remove members that are no longer in the team
+        // Remove members no longer in the team
         for (const oldId of existingMemberIds) {
           if (!newMemberIds.includes(oldId)) {
             await TeamMember.deleteOne({
               team_id: team._id,
-              student_id: new mongoose.Types.ObjectId(oldId),
+              student_id: new Types.ObjectId(oldId),
             }).session(session);
 
             changedStudentIds.add(oldId);
@@ -1011,7 +1020,7 @@ export async function POST(req: Request) {
         // Ensure this team is linked to any active assignments
         const activeAssignments = await getActiveAssignments(
           klass._id,
-          session
+          session,
         );
 
         for (const a of activeAssignments) {
@@ -1022,163 +1031,144 @@ export async function POST(req: Request) {
 
           if (!exists) {
             await AssignmentTeam.create(
-              [
-                {
-                  assignment_id: a._id,
-                  team_id: team._id,
-                },
-              ],
-              { session }
+              [{ assignment_id: a._id, team_id: team._id }],
+              { session },
             );
           }
         }
       }
 
-      // 7) If there are active assignments: purge review data for changed students
+      // 7) Purge review data for changed students in active assignments
       const activeAssignments = await getActiveAssignments(klass._id, session);
 
       if (activeAssignments.length > 0 && changedStudentIds.size > 0) {
-        const activeAssignmentIds = activeAssignments.map(
-          (a) => a._id as mongoose.Types.ObjectId
-        );
+        const activeAssignmentIds = activeAssignments.map((a) => a._id);
 
         const changedObjectIds = Array.from(changedStudentIds).map(
-          (id) => new mongoose.Types.ObjectId(id)
+          (id) => new Types.ObjectId(id),
         );
 
-        // a) Delete ALL submissions made by changed students for active assignments
-        const subsByChanged = await mongoose
-          .model("Submission")
-          .find(
-            {
-              assignment_id: { $in: activeAssignmentIds },
-              student_id: { $in: changedObjectIds },
-            },
-            { _id: 1 }
-          )
-          .session(session);
+        const SubmissionModel = mongoose.model("Submission");
+        const ResponseModel = mongoose.model("Response");
+        const CommentModel = mongoose.model("Comment");
+        const PraiseModel = mongoose.model("Praise");
 
-        const subsByChangedIds = subsByChanged.map(
-          (s) => s._id as mongoose.Types.ObjectId
-        );
+        const subsByChanged = (await SubmissionModel.find(
+          {
+            assignment_id: { $in: activeAssignmentIds },
+            student_id: { $in: changedObjectIds },
+          },
+          { _id: 1 },
+        )
+          .session(session)
+          .lean()) as unknown as SubmissionIdOnly[];
+
+        const subsByChangedIds = subsByChanged.map((s) => s._id);
 
         if (subsByChangedIds.length) {
-          await mongoose
-            .model("Response")
-            .deleteMany({ submission_id: { $in: subsByChangedIds } })
-            .session(session);
+          await ResponseModel.deleteMany({
+            submission_id: { $in: subsByChangedIds },
+          }).session(session);
 
-          await mongoose
-            .model("Comment")
-            .deleteMany({ submission_id: { $in: subsByChangedIds } })
-            .session(session);
+          await CommentModel.deleteMany({
+            submission_id: { $in: subsByChangedIds },
+          }).session(session);
 
-          await mongoose
-            .model("Praise")
-            .deleteMany({ submission_id: { $in: subsByChangedIds } })
-            .session(session);
+          await PraiseModel.deleteMany({
+            submission_id: { $in: subsByChangedIds },
+          }).session(session);
 
-          await mongoose
-            .model("Submission")
-            .deleteMany({ _id: { $in: subsByChangedIds } })
-            .session(session);
+          await SubmissionModel.deleteMany({
+            _id: { $in: subsByChangedIds },
+          }).session(session);
         }
 
-        // b) Delete ANY peer artifacts that *target* a changed student
+        // Delete peer artifacts that target changed students
         const allActiveSubmissionIds = await getSubmissionIdsForAssignments(
           activeAssignmentIds,
-          session
+          session,
         );
 
         if (allActiveSubmissionIds.length) {
-          await mongoose
-            .model("Response")
-            .deleteMany({
-              submission_id: { $in: allActiveSubmissionIds },
-              to_student_id: { $in: changedObjectIds },
-            })
-            .session(session);
+          await ResponseModel.deleteMany({
+            submission_id: { $in: allActiveSubmissionIds },
+            to_student_id: { $in: changedObjectIds },
+          }).session(session);
 
-          await mongoose
-            .model("Comment")
-            .deleteMany({
-              submission_id: { $in: allActiveSubmissionIds },
-              to_student_id: { $in: changedObjectIds },
-            })
-            .session(session);
+          await CommentModel.deleteMany({
+            submission_id: { $in: allActiveSubmissionIds },
+            to_student_id: { $in: changedObjectIds },
+          }).session(session);
 
-          await mongoose
-            .model("Praise")
-            .deleteMany({
-              submission_id: { $in: allActiveSubmissionIds },
-              to_student_id: { $in: changedObjectIds },
-            })
-            .session(session);
+          await PraiseModel.deleteMany({
+            submission_id: { $in: allActiveSubmissionIds },
+            to_student_id: { $in: changedObjectIds },
+          }).session(session);
         }
       }
 
       // 8) Clean orphaned students (no memberships anywhere)
-      const studentIds = await User.find(
-        { role: "student" },
-        { _id: 1 }
-      ).session(session);
+      const studentIds = await User.find({ role: "student" }, { _id: 1 })
+        .session(session)
+        .lean();
 
       const studentIdStrs = new Set(studentIds.map((u) => String(u._id)));
 
       const activeMemberStudentIds = await TeamMember.find(
         {},
-        { student_id: 1 }
-      ).session(session);
+        { student_id: 1 },
+      )
+        .session(session)
+        .lean();
 
       const activeMemberSet = new Set(
-        activeMemberStudentIds.map((tm) => String(tm.student_id))
+        activeMemberStudentIds.map((tm) => String(tm.student_id)),
       );
 
       const orphanIds = Array.from(studentIdStrs).filter(
-        (id) => !activeMemberSet.has(id)
+        (id) => !activeMemberSet.has(id),
       );
 
       if (orphanIds.length > 0) {
         await User.deleteMany({
-          _id: { $in: orphanIds.map((id) => new mongoose.Types.ObjectId(id)) },
+          _id: { $in: orphanIds.map((id) => new Types.ObjectId(id)) },
           role: "student",
         }).session(session);
       }
     });
 
-    // 9) Build response (outside transaction for simplicity)
-    const instructor = await User.findOne({
-      email: body?.instructor_email,
-    });
+    // 9) Build response (outside transaction)
+    const instructor = await User.findOne({ email: instructor_email });
 
     const klass = await Class.findOne({
-      name: `${body?.term}_${body?.year}_${body?.courseName}`,
-      section: body?.class,
+      name: `${term}_${year}_${courseName}`,
+      section,
     });
 
     const teams = klass ? await Team.find({ class_id: klass._id }).lean() : [];
 
-    const fullTeams = [];
-    for (const team of teams) {
-      const members = await TeamMember.find({ team_id: team._id })
-        .populate("student_id")
-        .lean();
+    const fullTeams = await Promise.all(
+      teams.map(async (team) => {
+        const members = (await TeamMember.find({ team_id: team._id })
+          .populate("student_id")
+          .lean()) as unknown as TeamMemberPopulated[];
 
-      fullTeams.push({
-        _id: team._id,
-        class_id: team.class_id,
-        team_number: team.team_number,
-        createdAt: team.createdAt,
-        updatedAt: team.updatedAt,
-        members: members.map((m: any) => ({
-          user_id: m.student_id._id,
-          email: m.student_id.email,
-          first_name: m.student_id.first_name,
-          last_name: m.student_id.last_name,
-          role: m.student_id.role,
-        })),
-      });
-    }
+        return {
+          _id: team._id,
+          class_id: team.class_id,
+          team_number: team.team_number,
+          createdAt: team.createdAt,
+          updatedAt: team.updatedAt,
+          members: members.map((m) => ({
+            user_id: m.student_id._id,
+            email: m.student_id.email,
+            first_name: m.student_id.first_name,
+            last_name: m.student_id.last_name,
+            role: m.student_id.role,
+          })),
+        };
+      }),
+    );
 
     return NextResponse.json({
       ok: true,
@@ -1204,9 +1194,11 @@ export async function POST(req: Request) {
           }
         : undefined,
     });
-  } catch (e: any) {
-    console.error("update-teams error:", e);
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json(
+      { ok: false, error: errorMessage(e) },
+      { status: 500 },
+    );
   } finally {
     session.endSession();
   }
