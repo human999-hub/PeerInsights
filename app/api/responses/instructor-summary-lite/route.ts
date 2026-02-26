@@ -1,11 +1,53 @@
-// app/api/responses/instructor-summary-lite/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
+import { Types } from "mongoose";
 
 import User from "@/models/User";
 import Class from "@/models/Class";
 import Team from "@/models/Team";
 import TeamMember from "@/models/TeamMember";
+
+type UserRole = "student" | "instructor" | "ta";
+
+type StaffLean = {
+  _id: Types.ObjectId;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  role: UserRole;
+};
+
+type ClassLean = {
+  _id: Types.ObjectId;
+  name?: string;
+  section?: string;
+  term?: string;
+  year?: string | number;
+};
+
+type TeamLean = {
+  _id: Types.ObjectId;
+  class_id: Types.ObjectId;
+  team_number?: string;
+};
+
+type PopulatedStudent = {
+  _id: Types.ObjectId;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  role?: UserRole;
+};
+
+type TeamMemberPopulated = {
+  team_id: Types.ObjectId;
+  student_id?: PopulatedStudent | null;
+};
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return "Unknown error";
+}
 
 export async function GET(req: Request) {
   try {
@@ -20,13 +62,12 @@ export async function GET(req: Request) {
       );
     }
 
-    // 1) Find staff user
-    const staff = await User.findOne({
+    const staff = (await User.findOne({
       email: instructor_email,
       role: { $in: ["instructor", "ta"] },
     })
       .select({ email: 1, first_name: 1, last_name: 1, role: 1 })
-      .lean();
+      .lean()) as unknown as StaffLean | null;
 
     if (!staff) {
       return NextResponse.json(
@@ -35,11 +76,10 @@ export async function GET(req: Request) {
       );
     }
 
-    // 2) Classes
-    const classes = await Class.find({ instructor_id: staff._id })
+    const classes = (await Class.find({ instructor_id: staff._id })
       .select({ name: 1, section: 1, term: 1, year: 1 })
       .sort({ year: -1, term: 1, section: 1 })
-      .lean();
+      .lean()) as unknown as ClassLean[];
 
     if (!classes.length) {
       return NextResponse.json({
@@ -47,8 +87,8 @@ export async function GET(req: Request) {
         instructor: {
           _id: String(staff._id),
           email: staff.email,
-          first_name: staff.first_name,
-          last_name: staff.last_name,
+          first_name: staff.first_name ?? null,
+          last_name: staff.last_name ?? null,
           role: staff.role,
         },
         classes: [],
@@ -57,37 +97,55 @@ export async function GET(req: Request) {
 
     const classIds = classes.map((c) => c._id);
 
-    // 3) Teams
-    const teams = await Team.find({ class_id: { $in: classIds } })
+    const teams = (await Team.find({ class_id: { $in: classIds } })
       .select({ class_id: 1, team_number: 1 })
       .sort({ team_number: 1 })
-      .lean();
+      .lean()) as unknown as TeamLean[];
 
     const teamIds = teams.map((t) => t._id);
 
-    // 4) Load team members WITH names
-    const teamMembers = await TeamMember.find({ team_id: { $in: teamIds } })
+    const teamMembers = (await TeamMember.find({ team_id: { $in: teamIds } })
       .populate("student_id", "email first_name last_name role")
-      .lean();
+      .lean()) as unknown as TeamMemberPopulated[];
 
-    const membersByTeam = new Map<string, any[]>();
-    for (const tm of teamMembers as any[]) {
+    const membersByTeam = new Map<
+      string,
+      Array<{
+        user_id: string | null;
+        email: string | null;
+        first_name: string | null;
+        last_name: string | null;
+        role: UserRole | null;
+      }>
+    >();
+
+    for (const tm of teamMembers) {
       const key = String(tm.team_id);
       if (!membersByTeam.has(key)) membersByTeam.set(key, []);
 
-      const u = tm.student_id; // populated user
+      const u = tm.student_id;
       membersByTeam.get(key)!.push({
-        user_id: String(u?._id),
-        email: u?.email,
-        first_name: u?.first_name,
-        last_name: u?.last_name,
-        role: u?.role,
+        user_id: u?._id ? String(u._id) : null,
+        email: u?.email ?? null,
+        first_name: u?.first_name ?? null,
+        last_name: u?.last_name ?? null,
+        role: u?.role ?? null,
       });
     }
 
-    // 5) (Optional) member count from membersByTeam
-    const teamsByClass = new Map<string, any[]>();
-    for (const t of teams as any[]) {
+    const teamsByClass = new Map<
+      string,
+      Array<{
+        team_id: string;
+        team_number: string | null;
+        members_count: number;
+        members: ReturnType<(typeof membersByTeam)["get"]> extends infer R
+          ? NonNullable<R>
+          : never;
+      }>
+    >();
+
+    for (const t of teams) {
       const classKey = String(t.class_id);
       if (!teamsByClass.has(classKey)) teamsByClass.set(classKey, []);
 
@@ -96,9 +154,9 @@ export async function GET(req: Request) {
 
       teamsByClass.get(classKey)!.push({
         team_id: tid,
-        team_number: t.team_number,
+        team_number: t.team_number ?? null,
         members_count: members.length,
-        members, // ✅ names included here
+        members,
       });
     }
 
@@ -107,21 +165,24 @@ export async function GET(req: Request) {
       instructor: {
         _id: String(staff._id),
         email: staff.email,
-        first_name: staff.first_name,
-        last_name: staff.last_name,
+        first_name: staff.first_name ?? null,
+        last_name: staff.last_name ?? null,
         role: staff.role,
       },
-      classes: classes.map((c: any) => ({
+      classes: classes.map((c) => ({
         class_id: String(c._id),
-        name: c.name,
-        section: c.section,
-        term: c.term,
-        year: c.year,
+        name: c.name ?? null,
+        section: c.section ?? null,
+        term: c.term ?? null,
+        year: c.year ?? null,
         teams: teamsByClass.get(String(c._id)) || [],
       })),
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("instructor-summary-lite error:", e);
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: errorMessage(e) },
+      { status: 500 },
+    );
   }
 }
