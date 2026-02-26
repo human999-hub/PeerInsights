@@ -3,97 +3,107 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import { submitReview } from "@/services/submitReview";
 
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return "Unknown error";
+}
+
+function toObjectId(v: unknown, fieldName: string): Types.ObjectId {
+  if (v instanceof Types.ObjectId) return v;
+  if (typeof v === "string" && Types.ObjectId.isValid(v))
+    return new Types.ObjectId(v);
+  throw new Error(`Invalid ObjectId for ${fieldName}`);
+}
+
+type RatingIn = {
+  to_student_id: string;
+  question_id: string;
+  rating: number;
+};
+
+type CommentIn = {
+  to_student_id: string;
+  question_id: string;
+  comment_text: string;
+};
+
+type PraiseIn = {
+  to_student_id: string;
+  question_id?: string;
+  praise_text: string;
+};
+
+type SubmitBody = {
+  assignment_id: string;
+  team_id: string;
+  from_student_id: string;
+  ratings?: RatingIn[];
+  comments?: CommentIn[];
+  praises?: PraiseIn[];
+};
+
+type RatingOut = Omit<RatingIn, "to_student_id" | "question_id"> & {
+  to_student_id: Types.ObjectId;
+  question_id: Types.ObjectId;
+};
+
+type CommentOut = Omit<CommentIn, "to_student_id" | "question_id"> & {
+  to_student_id: Types.ObjectId;
+  question_id: Types.ObjectId;
+};
+
+type PraiseOut = Omit<PraiseIn, "to_student_id" | "question_id"> & {
+  to_student_id: Types.ObjectId;
+  question_id?: Types.ObjectId;
+};
+
+type SubmitPayload = {
+  assignment_id: Types.ObjectId;
+  team_id: Types.ObjectId;
+  from_student_id: Types.ObjectId;
+  ratings: RatingOut[];
+  comments: CommentOut[];
+  praises: PraiseOut[];
+};
+
 export async function POST(req: Request) {
   try {
     await connectDB();
-    const body = await req.json();
 
-    const toId = (v: any) => new Types.ObjectId(v);
+    const body = (await req.json()) as SubmitBody;
 
-    const payload = body;
-    payload.assignment_id = toId(payload.assignment_id);
-    payload.team_id = toId(payload.team_id);
-    payload.from_student_id = toId(payload.from_student_id);
+    const payload: SubmitPayload = {
+      assignment_id: toObjectId(body.assignment_id, "assignment_id"),
+      team_id: toObjectId(body.team_id, "team_id"),
+      from_student_id: toObjectId(body.from_student_id, "from_student_id"),
 
-    payload.ratings = (payload.ratings || []).map((r: any) => ({
-      ...r,
-      to_student_id: toId(r.to_student_id),
-      question_id: toId(r.question_id),
-    }));
-    payload.comments = (payload.comments || []).map((c: any) => ({
-      ...c,
-      to_student_id: toId(c.to_student_id),
-      question_id: toId(c.question_id),
-    }));
-    payload.praises = (payload.praises || []).map((p: any) => ({
-      ...p,
-      to_student_id: toId(p.to_student_id),
-      question_id: p.question_id ? toId(p.question_id) : undefined,
-    }));
+      ratings: (body.ratings ?? []).map((r) => ({
+        ...r,
+        to_student_id: toObjectId(r.to_student_id, "ratings.to_student_id"),
+        question_id: toObjectId(r.question_id, "ratings.question_id"),
+      })),
+
+      comments: (body.comments ?? []).map((c) => ({
+        ...c,
+        to_student_id: toObjectId(c.to_student_id, "comments.to_student_id"),
+        question_id: toObjectId(c.question_id, "comments.question_id"),
+      })),
+
+      praises: (body.praises ?? []).map((p) => ({
+        ...p,
+        to_student_id: toObjectId(p.to_student_id, "praises.to_student_id"),
+        question_id: p.question_id
+          ? toObjectId(p.question_id, "praises.question_id")
+          : undefined,
+      })),
+    };
 
     const result = await submitReview(payload);
     return NextResponse.json(result);
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message }, { status: 400 });
+  } catch (e: unknown) {
+    return NextResponse.json(
+      { ok: false, error: errorMessage(e) },
+      { status: 400 },
+    );
   }
 }
-
-// import { NextResponse } from "next/server";
-// import { connectDB } from "@/lib/mongodb";
-// import { Types } from "mongoose";
-// import { submitReview } from "@/services/submitReview";
-// import Assignment from "@/models/Assignment";
-// import Team from "@/models/Team";
-// import User from "@/models/User";
-// import Question from "@/models/Question";
-// import { resolveId } from "@/lib/resolveId";
-
-// export async function POST(req: Request) {
-//   try {
-//     await connectDB();
-//     const body = await req.json();
-
-//     const payload = { ...body };
-
-//     // Accept ObjectId or human code
-//     payload.assignment_id = await resolveId(
-//       Assignment as any,
-//       payload.assignment_id,
-//       "code"
-//     );
-//     payload.team_id = await resolveId(Team as any, payload.team_id, "code");
-//     payload.from_student_id = await resolveId(
-//       User as any,
-//       payload.from_student_id,
-//       "code"
-//     );
-
-//     payload.ratings = (payload.ratings || []).map(async (r: any) => ({
-//       ...r,
-//       to_student_id: await resolveId(User as any, r.to_student_id, "code"),
-//       question_id: await resolveId(Question as any, r.question_id, "qid"),
-//     }));
-//     payload.comments = (payload.comments || []).map(async (c: any) => ({
-//       ...c,
-//       to_student_id: await resolveId(User as any, c.to_student_id, "code"),
-//       question_id: await resolveId(Question as any, c.question_id, "qid"),
-//     }));
-//     payload.praises = (payload.praises || []).map(async (p: any) => ({
-//       ...p,
-//       to_student_id: await resolveId(User as any, p.to_student_id, "code"),
-//       question_id: p.question_id
-//         ? await resolveId(Question as any, p.question_id, "qid")
-//         : undefined,
-//     }));
-
-//     // wait for all async maps
-//     payload.ratings = await Promise.all(payload.ratings);
-//     payload.comments = await Promise.all(payload.comments);
-//     payload.praises = await Promise.all(payload.praises);
-
-//     const result = await submitReview(payload);
-//     return NextResponse.json(result);
-//   } catch (e: any) {
-//     return NextResponse.json({ ok: false, error: e.message }, { status: 400 });
-//   }
-// }

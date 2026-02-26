@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import type { Types } from "mongoose";
 
 type UserRole = "student" | "instructor" | "ta";
 
@@ -13,33 +14,65 @@ type LoginBody = {
   password?: string;
 };
 
+type UserLoginDoc = {
+  _id: Types.ObjectId;
+  email: string;
+  role: UserRole;
+  password_hash?: string;
+  first_name?: string;
+  last_name?: string;
+};
+
 function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return "Unknown error";
+  return err instanceof Error ? err.message : "Unknown error";
+}
+
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+function isUserRole(v: unknown): v is UserRole {
+  return v === "student" || v === "instructor" || v === "ta";
 }
 
 export async function POST(req: Request) {
   try {
     await connectDB();
 
-    const body: LoginBody = (await req.json()) as LoginBody;
-    const { role, email, password } = body;
+    const raw: unknown = await req.json();
+    const body = raw as LoginBody;
 
-    // 1️⃣ Basic validation
-    if (!role || !email || !password) {
+    const role = body.role;
+    const email = body.email;
+    const password = body.password;
+
+    // 1) Validate input strongly
+    if (
+      !isUserRole(role) ||
+      !isNonEmptyString(email) ||
+      !isNonEmptyString(password)
+    ) {
       return NextResponse.json(
         { ok: false, error: "Role, email and password are required" },
         { status: 400 },
       );
     }
 
-    const fullEmail = email; // assume frontend sends full email
+    const fullEmail = email;
 
-    // 2️⃣ Find user with matching email + role
+    // 2) Find user
     const user = await User.findOne({
       email: fullEmail,
       role,
-    }).lean(false); // ensure it's a Mongoose doc in case you ever need methods
+    })
+      .select({
+        email: 1,
+        role: 1,
+        password_hash: 1,
+        first_name: 1,
+        last_name: 1,
+      })
+      .lean<UserLoginDoc | null>();
 
     if (!user) {
       return NextResponse.json(
@@ -48,8 +81,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3️⃣ Ensure password hash exists
-    if (!user.password_hash) {
+    // 3) Ensure password hash exists
+    if (!isNonEmptyString(user.password_hash)) {
       return NextResponse.json(
         {
           ok: false,
@@ -60,7 +93,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4️⃣ Compare plaintext password with stored hash
+    // 4) Compare password
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return NextResponse.json(
@@ -69,9 +102,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5️⃣ Create JWT token
+    // 5) Create JWT
     const secret = process.env.JWT_SECRET;
-    if (!secret) {
+    if (!isNonEmptyString(secret)) {
       throw new Error("JWT_SECRET is not configured");
     }
 
@@ -85,7 +118,7 @@ export async function POST(req: Request) {
       { expiresIn: "1h" },
     );
 
-    // 6️⃣ Return token + user info
+    // 6) Return
     return NextResponse.json({
       ok: true,
       token,
