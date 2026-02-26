@@ -1,4 +1,5 @@
 // app/api/assignments/create/route.ts
+
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Class from "@/models/Class";
@@ -31,7 +32,7 @@ type PopulatedAssignmentTeamLean = {
   };
 };
 
-function isValidDate(d: Date) {
+function isValidDate(d: Date): boolean {
   return !Number.isNaN(d.getTime());
 }
 
@@ -44,8 +45,6 @@ export async function POST(req: Request) {
     await connectDB();
 
     const body: unknown = await req.json();
-
-    // Validate shape
     const b = body as Partial<CreateAssignmentBody>;
 
     const instructor_email = b.instructor_email;
@@ -128,16 +127,16 @@ export async function POST(req: Request) {
     });
 
     // 5️⃣ Fetch all teams in this class
-    const teams = await Team.find({ class_id: klass._id }).lean<{
-      _id: unknown;
-    }>();
+    // ✅ IMPORTANT: lean generic must be an ARRAY type
+    const teams = await Team.find({ class_id: klass._id }).lean<
+      { _id: unknown }[]
+    >();
 
     if (teams.length === 0) {
       console.warn(`No teams found for class ${klass.name}`);
     }
 
     // 6️⃣ Link each team to the assignment
-    // (Can be parallelized)
     await Promise.all(
       teams.map((t) =>
         AssignmentTeam.create({
