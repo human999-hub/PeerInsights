@@ -20,6 +20,22 @@ type QuestionInfo = {
   description: string | null;
 };
 
+type AssignmentLean = {
+  _id: Types.ObjectId;
+  class_id: Types.ObjectId;
+  title: string;
+  start_date: Date;
+  due_date: Date;
+  active?: string | boolean;
+  allow_multiple_submissions?: string | boolean;
+};
+
+type TeamLean = {
+  _id: Types.ObjectId;
+  class_id: Types.ObjectId;
+  team_number: string;
+};
+
 type QuestionLean = {
   _id: Types.ObjectId;
   qid?: string;
@@ -68,13 +84,17 @@ type PopulatedStudent = {
   last_name?: string;
 };
 
-type TeamMemberPopulated = {
-  student_id?: PopulatedStudent | null;
+type TeamMemberPopulatedLean = {
+  student_id: PopulatedStudent | null;
 };
 
 function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return "Unknown error";
+  return err instanceof Error ? err.message : "Unknown error";
+}
+
+function toObjectId(id: string, fieldName: string): Types.ObjectId | null {
+  if (!Types.ObjectId.isValid(id)) return null;
+  return new Types.ObjectId(id);
 }
 
 export async function GET(req: Request) {
@@ -92,10 +112,17 @@ export async function GET(req: Request) {
       );
     }
 
-    const assignmentObjectId = new mongoose.Types.ObjectId(assignmentId);
-    const teamObjectId = new mongoose.Types.ObjectId(teamId);
+    const assignmentObjectId = toObjectId(assignmentId, "assignmentId");
+    const teamObjectId = toObjectId(teamId, "teamId");
 
-    // 1) Load assignment + team
+    if (!assignmentObjectId || !teamObjectId) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid assignmentId or teamId" },
+        { status: 400 },
+      );
+    }
+
+    // 1) Load assignment + team (✅ typed lean results)
     const [assignment, team] = await Promise.all([
       Assignment.findById(assignmentObjectId)
         .select({
@@ -106,10 +133,10 @@ export async function GET(req: Request) {
           active: 1,
           allow_multiple_submissions: 1,
         })
-        .lean(),
+        .lean<AssignmentLean | null>(),
       Team.findById(teamObjectId)
         .select({ class_id: 1, team_number: 1 })
-        .lean(),
+        .lean<TeamLean | null>(),
     ]);
 
     if (!assignment) {
@@ -125,21 +152,24 @@ export async function GET(req: Request) {
       );
     }
 
-    // 2) Members (for UI labels)
-    const members = (await TeamMember.find({ team_id: teamObjectId })
-      .populate("student_id", "email first_name last_name")
-      .lean()) as unknown as TeamMemberPopulated[];
+    // 2) Members (✅ typed populated lean)
+    const members = await TeamMember.find({ team_id: teamObjectId })
+      .populate({
+        path: "student_id",
+        select: "email first_name last_name",
+      })
+      .lean<TeamMemberPopulatedLean[]>();
 
     // 3) Submissions for this assignment + team
     const SubmissionModel = mongoose.model("Submission");
     const submissions = (await SubmissionModel.find({
       assignment_id: assignmentObjectId,
       team_id: teamObjectId,
-    }).lean()) as unknown as SubmissionLean[];
+    }).lean()) as unknown as SubmissionLean[]; // <-- see note below
 
     const submissionIds = submissions.map((s) => s._id);
 
-    // 4) Load responses/comments/praises for those submissions
+    // 4) Load responses/comments/praises + questions
     const ResponseModel = mongoose.model("Response");
     const CommentModel = mongoose.model("Comment");
     const PraiseModel = mongoose.model("Praise");
@@ -162,10 +192,10 @@ export async function GET(req: Request) {
         : Promise.resolve([] as PraiseLean[]),
       Question.find({})
         .select({ qid: 1, title: 1, description: 1 })
-        .lean() as unknown as Promise<QuestionLean[]>,
+        .lean<QuestionLean[]>(),
     ]);
 
-    // 5) question map (ONLY 4 fields)
+    // 5) Question map (ONLY 4 fields)
     const questionMap = new Map<string, QuestionInfo>();
     for (const q of questions) {
       const qId = String(q._id);
@@ -180,7 +210,7 @@ export async function GET(req: Request) {
     const qInfo = (qid: Types.ObjectId | null | undefined): QuestionInfo => {
       const key = qid ? String(qid) : "";
       return (
-        questionMap.get(key) || {
+        questionMap.get(key) ?? {
           question_id: key || null,
           qid: null,
           title: null,
@@ -189,26 +219,29 @@ export async function GET(req: Request) {
       );
     };
 
-    // 6) group by submission
+    // 6) Group by submission
     const responsesBySub = new Map<string, ResponseLean[]>();
     for (const r of responses) {
       const k = String(r.submission_id);
-      if (!responsesBySub.has(k)) responsesBySub.set(k, []);
-      responsesBySub.get(k)!.push(r);
+      const arr = responsesBySub.get(k);
+      if (arr) arr.push(r);
+      else responsesBySub.set(k, [r]);
     }
 
     const commentsBySub = new Map<string, CommentLean[]>();
     for (const c of comments) {
       const k = String(c.submission_id);
-      if (!commentsBySub.has(k)) commentsBySub.set(k, []);
-      commentsBySub.get(k)!.push(c);
+      const arr = commentsBySub.get(k);
+      if (arr) arr.push(c);
+      else commentsBySub.set(k, [c]);
     }
 
     const praisesBySub = new Map<string, PraiseLean[]>();
     for (const p of praises) {
       const k = String(p.submission_id);
-      if (!praisesBySub.has(k)) praisesBySub.set(k, []);
-      praisesBySub.get(k)!.push(p);
+      const arr = praisesBySub.get(k);
+      if (arr) arr.push(p);
+      else praisesBySub.set(k, [p]);
     }
 
     // 7) final payload
@@ -219,8 +252,9 @@ export async function GET(req: Request) {
         title: assignment.title,
         start_date: assignment.start_date,
         due_date: assignment.due_date,
-        active: assignment.active,
-        allow_multiple_submissions: assignment.allow_multiple_submissions,
+        active: assignment.active ?? null,
+        allow_multiple_submissions:
+          assignment.allow_multiple_submissions ?? null,
       },
       team: {
         team_id: teamId,
@@ -240,7 +274,7 @@ export async function GET(req: Request) {
           submitted_at: s.submitted_at ?? null,
           single_lock: s.single_lock ?? null,
 
-          responses: (responsesBySub.get(sid) || []).map((r) => ({
+          responses: (responsesBySub.get(sid) ?? []).map((r) => ({
             response_id: String(r._id),
             from_student_id: String(r.from_student_id),
             to_student_id: String(r.to_student_id),
@@ -249,7 +283,7 @@ export async function GET(req: Request) {
             rating: r.rating ?? null,
           })),
 
-          comments: (commentsBySub.get(sid) || []).map((c) => ({
+          comments: (commentsBySub.get(sid) ?? []).map((c) => ({
             comment_id: String(c._id),
             from_student_id: String(c.from_student_id),
             to_student_id: String(c.to_student_id),
@@ -258,7 +292,7 @@ export async function GET(req: Request) {
             comment_text: c.comment_text ?? null,
           })),
 
-          praises: (praisesBySub.get(sid) || []).map((p) => ({
+          praises: (praisesBySub.get(sid) ?? []).map((p) => ({
             praise_id: String(p._id),
             from_student_id: String(p.from_student_id),
             to_student_id: String(p.to_student_id),

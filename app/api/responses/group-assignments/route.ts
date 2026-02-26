@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import mongoose, { Types } from "mongoose";
+
 import Class from "@/models/Class";
 import Team from "@/models/Team";
 import TeamMember from "@/models/TeamMember";
@@ -10,6 +11,20 @@ import AssignmentTeam from "@/models/AssignmentTeam";
 // ensure model registered
 import "@/models/Submission";
 
+type ClassLean = {
+  _id: Types.ObjectId;
+  name: string;
+  section: string;
+  term: string;
+  year: number;
+};
+
+type TeamLean = {
+  _id: Types.ObjectId;
+  class_id: Types.ObjectId;
+  team_number: string;
+};
+
 type PopulatedStudent = {
   _id: Types.ObjectId;
   email?: string;
@@ -17,8 +32,8 @@ type PopulatedStudent = {
   last_name?: string;
 };
 
-type TeamMemberPopulated = {
-  student_id?: PopulatedStudent | null;
+type TeamMemberPopulatedLean = {
+  student_id: PopulatedStudent | null;
 };
 
 type AssignmentLean = {
@@ -40,8 +55,12 @@ type SubmissionCountAgg = {
 };
 
 function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return "Unknown error";
+  return err instanceof Error ? err.message : "Unknown error";
+}
+
+function toObjectId(id: string): Types.ObjectId | null {
+  if (!Types.ObjectId.isValid(id)) return null;
+  return new Types.ObjectId(id);
 }
 
 export async function GET(req: Request) {
@@ -59,17 +78,24 @@ export async function GET(req: Request) {
       );
     }
 
-    const classObjectId = new mongoose.Types.ObjectId(classId);
-    const teamObjectId = new mongoose.Types.ObjectId(teamId);
+    const classObjectId = toObjectId(classId);
+    const teamObjectId = toObjectId(teamId);
 
-    // 1) Validate class + team
+    if (!classObjectId || !teamObjectId) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid classId or teamId" },
+        { status: 400 },
+      );
+    }
+
+    // 1) Validate class + team  ✅ typed lean()
     const [klass, team] = await Promise.all([
       Class.findById(classObjectId)
         .select({ name: 1, section: 1, term: 1, year: 1 })
-        .lean(),
+        .lean<ClassLean | null>(),
       Team.findOne({ _id: teamObjectId, class_id: classObjectId })
         .select({ team_number: 1, class_id: 1 })
-        .lean(),
+        .lean<TeamLean | null>(),
     ]);
 
     if (!klass) {
@@ -85,15 +111,18 @@ export async function GET(req: Request) {
       );
     }
 
-    // 2) team members
-    const members = (await TeamMember.find({ team_id: teamObjectId })
-      .populate("student_id", "email first_name last_name")
-      .lean()) as unknown as TeamMemberPopulated[];
+    // 2) team members ✅ typed populated lean()
+    const members = await TeamMember.find({ team_id: teamObjectId })
+      .populate({
+        path: "student_id",
+        select: "email first_name last_name",
+      })
+      .lean<TeamMemberPopulatedLean[]>();
 
-    // 3) assignments linked to this team via AssignmentTeam
-    const links = (await AssignmentTeam.find({ team_id: teamObjectId })
+    // 3) assignments linked to this team via AssignmentTeam ✅ typed lean()
+    const links = await AssignmentTeam.find({ team_id: teamObjectId })
       .select({ assignment_id: 1 })
-      .lean()) as unknown as AssignmentTeamLean[];
+      .lean<AssignmentTeamLean[]>();
 
     const assignmentIds = links.map((l) => l.assignment_id);
 
@@ -121,7 +150,8 @@ export async function GET(req: Request) {
       });
     }
 
-    const assignments = (await Assignment.find({ _id: { $in: assignmentIds } })
+    // 4) assignments ✅ typed lean()
+    const assignments = await Assignment.find({ _id: { $in: assignmentIds } })
       .select({
         title: 1,
         start_date: 1,
@@ -130,11 +160,10 @@ export async function GET(req: Request) {
         allow_multiple_submissions: 1,
       })
       .sort({ start_date: -1, _id: -1 })
-      .lean()) as unknown as AssignmentLean[];
+      .lean<AssignmentLean[]>();
 
-    // 4) submissionsCount per assignment (for THIS team)
+    // 5) submissionsCount per assignment (for THIS team)
     const SubmissionModel = mongoose.model("Submission");
-
     const counts = (await SubmissionModel.aggregate([
       {
         $match: {
@@ -143,7 +172,7 @@ export async function GET(req: Request) {
         },
       },
       { $group: { _id: "$assignment_id", count: { $sum: 1 } } },
-    ])) as SubmissionCountAgg[];
+    ])) as unknown as SubmissionCountAgg[];
 
     const countMap = new Map<string, number>(
       counts.map((c) => [String(c._id), c.count]),
