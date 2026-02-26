@@ -8,6 +8,11 @@ import TeamMember from "@/models/TeamMember";
 import Assignment from "@/models/Assignment";
 import AssignmentTeam from "@/models/AssignmentTeam";
 
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return "Unknown error";
+}
+
 export async function POST() {
   try {
     await connectDB();
@@ -19,16 +24,17 @@ export async function POST() {
       email: string,
       first: string,
       last: string,
-      role: "student" | "instructor"
+      role: "student" | "instructor",
     ) => {
       let u = await User.findOne({ email });
-      if (!u)
+      if (!u) {
         u = await User.create({
           email,
           first_name: first,
           last_name: last,
           role,
         });
+      }
       return u;
     };
 
@@ -36,31 +42,31 @@ export async function POST() {
       "instructor@example.com",
       "Instructor",
       "One",
-      "instructor"
+      "instructor",
     );
     const haritha = await ensureUser(
       "haritha@example.com",
       "Haritha",
       "Injam",
-      "student"
+      "student",
     );
     const sushma = await ensureUser(
       "sushma@example.com",
       "Sushma",
       "Nukala",
-      "student"
+      "student",
     );
     const aparanji = await ensureUser(
       "aparanji@example.com",
       "Aparanji",
       "Nemmani",
-      "student"
+      "student",
     );
     const shutonu = await ensureUser(
       "shutonu@example.com",
       "Shutonu",
       "Mitra",
-      "student"
+      "student",
     );
 
     let klass = await Class.findOne({
@@ -81,19 +87,22 @@ export async function POST() {
       class_id: klass._id,
       team_number: "Group_1",
     });
-    if (!team)
+    if (!team) {
       team = await Team.create({ class_id: klass._id, team_number: "Group_1" });
+    }
 
     const ensureMember = async (studentId: mongoose.Types.ObjectId) => {
       const exists = await TeamMember.exists({
         team_id: team._id,
         student_id: studentId,
       });
-      if (!exists)
+      if (!exists) {
         await TeamMember.create({ team_id: team._id, student_id: studentId });
+      }
     };
+
     await Promise.all(
-      [haritha, sushma, aparanji, shutonu].map((u) => ensureMember(u._id))
+      [haritha, sushma, aparanji, shutonu].map((u) => ensureMember(u._id)),
     );
 
     let assignment = await Assignment.findOne({
@@ -104,8 +113,6 @@ export async function POST() {
       assignment = await Assignment.create({
         class_id: klass._id,
         title: "Peer_Evaluation",
-        // start_date: new Date("2025-09-01"),
-        // due_date: new Date("2025-09-10"),
         start_date: new Date(now.getTime() - day), // yesterday
         due_date: new Date(now.getTime() + 7 * day), // +7 days
         allow_multiple_submissions: "N",
@@ -118,11 +125,12 @@ export async function POST() {
       assignment_id: assignment._id,
       team_id: team._id,
     });
-    if (!link)
+    if (!link) {
       await AssignmentTeam.create({
         assignment_id: assignment._id,
         team_id: team._id,
       });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -130,7 +138,10 @@ export async function POST() {
       team_id: String(team._id),
       assignment_id: String(assignment._id),
     });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json(
+      { ok: false, error: errorMessage(e) },
+      { status: 500 },
+    );
   }
 }
