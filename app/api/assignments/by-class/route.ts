@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       ok: true,
       class: {
-        class_id: String(klass._id),
+        class_id: klass._id,
         name: klass.name,
         section: klass.section,
         instructor_email: instructor.email,
