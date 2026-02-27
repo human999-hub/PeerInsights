@@ -120,7 +120,7 @@ export async function GET(req: Request) {
           }));
 
         return {
-          team_id: team._id.toString(),
+          _id: team._id.toString(),
           class_id: team.class_id.toString(),
           team_number: team.team_number,
           createdAt: team.createdAt ?? null,

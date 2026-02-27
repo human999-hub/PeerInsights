@@ -16,6 +16,7 @@ const AssignmentSchema = new mongoose.Schema({
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   active: { type: String, enum: ["Y", "N"], default: "Y" },
 });
+
 AssignmentSchema.index({ class_id: 1, start_date: -1 });
 
 // AssignmentSchema.pre("save", async function () {
